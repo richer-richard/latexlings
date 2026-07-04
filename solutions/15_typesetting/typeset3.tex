@@ -1,0 +1,24 @@
+% typeset3 solution: booktabs table, three rules, no vertical lines.
+
+\documentclass{article}
+\usepackage{booktabs}
+
+\begin{document}
+
+The table below compares four ways to turn a \TeX{} source file into
+output, from the original engine to its modern descendants.
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Engine & Year & Output \\
+\midrule
+latex (original \TeX{}) & 1984 & DVI \\
+pdflatex (pdf\TeX{}) & 1996 & PDF \\
+xelatex (Xe\TeX{}) & 2004 & PDF \\
+lualatex (Lua\TeX{}) & 2007 & PDF \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}

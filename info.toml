@@ -680,3 +680,276 @@ looking for a brace that never comes, all the way to the end of the
 file. Delete the % (or escape it as \\% if you truly meant a literal
 percent sign) and make sure a real } closes the argument where you
 meant it to."""
+
+
+# ── 13_packages_layout ──────────────────────────────────────────────────
+
+[[exercises]]
+name = "layout1"
+dir = "13_packages_layout"
+mode = "fix"
+hint = """
+"File `geomtry.sty' not found" -- LaTeX read \\usepackage{geomtry} and
+went looking for a file called exactly that. Packages are files first,
+keywords second. Fix the spelling: \\usepackage{geometry}."""
+
+[[exercises]]
+name = "layout2"
+dir = "13_packages_layout"
+mode = "fix"
+hint = """
+"File `g.sty' not found" -- with no {braces}, \\usepackage grabs just
+the next single token as its mandatory argument: the letter g. Wrap the
+package name in braces: \\usepackage[margin=1in]{geometry}."""
+
+[[exercises]]
+name = "layout3"
+dir = "13_packages_layout"
+mode = "write"
+hint = """
+Center the title with \\begin{center}\\textbf{\\Large Weekly Report}\\end{center}.
+Starred sections skip numbering: \\section*{Done} and \\section*{Next},
+each followed by one sentence of body text. The margins come from
+\\usepackage[margin=1in]{geometry}, already in the preamble."""
+[[exercises.checks]]
+pattern = 'Weekly Report'
+note = "add a centered title line reading exactly: Weekly Report"
+[[exercises.checks]]
+pattern = 'Done'
+note = "add a \\section*{Done} heading"
+[[exercises.checks]]
+pattern = 'Next'
+note = "add a \\section*{Next} heading"
+[[exercises.checks]]
+pattern = 'Shipped the login redesign'
+note = "under Done, describe something finished (e.g. Shipped the login redesign and fixed the flaky checkout test.)"
+[[exercises.checks]]
+pattern = 'onboarding flow'
+note = "under Next, describe something upcoming (e.g. Start the onboarding flow and write its test plan.)"
+
+# ── 14_bibliography ──────────────────────────────────────────────────────
+
+[[exercises]]
+name = "bib1"
+dir = "14_bibliography"
+mode = "fix"
+hint = """
+"Not allowed in LR mode" -- \\bibitem relies on list machinery that
+\\begin{thebibliography}{...} sets up, and the mandatory argument is
+missing entirely here. Give it a widest-label placeholder:
+\\begin{thebibliography}{9}"""
+
+[[exercises]]
+name = "bib2"
+dir = "14_bibliography"
+mode = "fix"
+hint = """
+"\\begin{thebibliography} ... ended by \\end{thebibliograpy}" -- same
+family of error as \\end{documnet} back in intro2: the closing tag must
+spell the environment name exactly. Fix it to \\end{thebibliography}.
+The \\cite{knuth1984} / \\bibitem{knuth84} mismatch is separate and
+harmless -- LaTeX only warns about it and prints [?] in the PDF."""
+
+[[exercises]]
+name = "bib3"
+dir = "14_bibliography"
+mode = "write"
+hint = """
+\\cite{key} prints "[n]" where n is that entry's position among the
+\\bibitem's below it -- \\cite{knuth1984} needs a matching
+\\bibitem{knuth1984} inside \\begin{thebibliography}{9}...\\end{thebibliography}.
+List the entries in citation order and the numbers will line up."""
+[[exercises.checks]]
+pattern = 'are \[1\] and \[2\]'
+note = "the sentence must cite two sources in order: ... are [1] and [2]."
+[[exercises.checks]]
+pattern = '\[1\] Donald E\. Knuth'
+note = "the first bibliography entry must be Knuth, numbered [1]"
+[[exercises.checks]]
+pattern = '\[2\] Leslie Lamport'
+note = "the second bibliography entry must be Lamport, numbered [2]"
+[[exercises.checks]]
+pattern = 'Addison-Wesley, 1984'
+note = "the Knuth entry needs its publisher and year: Addison-Wesley, 1984"
+[[exercises.checks]]
+pattern = 'Addison-Wesley, 1994'
+note = "the Lamport entry needs its publisher and year: Addison-Wesley, 1994"
+
+# ── 15_typesetting ────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "typeset1"
+dir = "15_typesetting"
+mode = "write"
+hint = """
+Preamble: \\title{The Art of Not Overfitting}, \\author{...}, then
+\\maketitle right after \\begin{document}. abstract is an environment:
+\\begin{abstract}...\\end{abstract}. Motivation is a numbered section:
+\\section{Motivation}."""
+[[exercises.checks]]
+pattern = 'The Art of Not Overfitting'
+note = "the title must read exactly: The Art of Not Overfitting"
+[[exercises.checks]]
+pattern = 'Abstract'
+note = "wrap the abstract text in \\begin{abstract}...\\end{abstract}"
+[[exercises.checks]]
+pattern = 'failure to generalize'
+note = "the abstract's first sentence is about failing to generalize, not to memorize"
+[[exercises.checks]]
+pattern = 'regularization heuristic'
+note = "the abstract's second sentence mentions a regularization heuristic"
+[[exercises.checks]]
+pattern = '1 Motivation'
+note = "add a numbered \\section{Motivation}"
+[[exercises.checks]]
+pattern = 'central puzzle this document addresses'
+note = "the Motivation paragraph should end: ...the central puzzle this document addresses."
+
+[[exercises]]
+name = "typeset2"
+dir = "15_typesetting"
+mode = "write"
+hint = """
+\\usepackage{amsmath} for align*. The display equation is
+\\[ \\frac{a+b}{2} \\geq \\sqrt{ab}. \\]
+The proof is 3 lines in \\begin{align*}...\\end{align*}, each ended with
+\\\\ and using & right before the relation symbol so they line up:
+  (\\sqrt{a} - \\sqrt{b})^2 &\\geq 0 \\\\
+  a - 2\\sqrt{ab} + b &\\geq 0 \\\\
+  \\frac{a+b}{2} &\\geq \\sqrt{ab}"""
+[[exercises.checks]]
+pattern = 'arithmetic mean is at least the geometric mean'
+note = "state AM-GM in words before the display equation"
+[[exercises.checks]]
+pattern = 'a\+b √ ≥ ab'
+note = "the display equation must be \\frac{a+b}{2} \\geq \\sqrt{ab}."
+[[exercises.checks]]
+pattern = 'Proof\.'
+note = "introduce the derivation with the word Proof. (e.g. \\textit{Proof.})"
+[[exercises.checks]]
+pattern = '√ √ \( a − b\)2 ≥ 0'
+note = "first proof line: (\\sqrt{a} - \\sqrt{b})^2 \\geq 0"
+[[exercises.checks]]
+pattern = 'a − 2 ab \+ b ≥ 0'
+note = "second proof line: a - 2\\sqrt{ab} + b \\geq 0"
+
+[[exercises]]
+name = "typeset3"
+dir = "15_typesetting"
+mode = "write"
+hint = """
+\\usepackage{booktabs}. Wrap the tabular in \\begin{center}...\\end{center}.
+Column spec {lcc}; rules are \\toprule, \\midrule, \\bottomrule -- no
+\\hline, no vertical bars in the column spec. Each row ends in \\\\ and
+uses & between cells."""
+[[exercises.checks]]
+pattern = 'compares four ways to turn a TEX source file into output'
+note = "the intro sentence must describe comparing four ways to produce output from a TeX source file"
+[[exercises.checks]]
+pattern = 'latex \(original TEX\) pdflatex \(pdfTEX\)'
+note = "first two table rows: latex (original TeX) and pdflatex (pdfTeX)"
+[[exercises.checks]]
+pattern = 'xelatex \(XeTEX\) lualatex \(LuaTEX\)'
+note = "last two table rows: xelatex (XeTeX) and lualatex (LuaTeX)"
+[[exercises.checks]]
+pattern = '1984 1996 2004 2007'
+note = "the Year column must read 1984, 1996, 2004, 2007 top to bottom"
+[[exercises.checks]]
+pattern = 'DVI PDF PDF PDF'
+note = "the Output column must read DVI, PDF, PDF, PDF top to bottom"
+
+[[exercises]]
+name = "typeset4"
+dir = "15_typesetting"
+mode = "write"
+hint = """
+\\section*{Problem Set 3} for the heading. \\begin{enumerate}...\\end{enumerate}
+for the three problems, each an \\item mixing text with inline math
+($...$). \\usepackage{amsmath} gives you \\sum_{k=1}^{10} inside $...$."""
+[[exercises.checks]]
+pattern = 'Problem Set 3'
+note = "add the heading \\section*{Problem Set 3}"
+[[exercises.checks]]
+pattern = '1\. Solve x2 − 5x \+ 6 = 0 for x'
+note = "problem 1: Solve $x^2 - 5x + 6 = 0$ for $x$."
+[[exercises.checks]]
+pattern = '2\. Compute'
+note = "problem 2 must start: Compute ..."
+[[exercises.checks]]
+pattern = 'k=1 k\.'
+note = "problem 2: Compute $\\sum_{k=1}^{10} k$."
+[[exercises.checks]]
+pattern = '3\. Show that \(a \+ b\)2 = a2 \+ 2ab \+ b2'
+note = "problem 3: Show that $(a+b)^2 = a^2 + 2ab + b^2$."
+
+[[exercises]]
+name = "typeset5"
+dir = "15_typesetting"
+mode = "write"
+hint = """
+\\opening{Dear Dr. Knuth,} replaces the greeting; \\closing{Sincerely,}
+replaces the sign-off. Both go inside \\begin{letter}{...}...\\end{letter},
+with two ordinary paragraphs (separated by a blank line) between them.
+\\address and \\signature stay in the preamble, before \\begin{document}."""
+[[exercises.checks]]
+pattern = 'Dear Dr\. Knuth'
+note = "the opening must read exactly: \\opening{Dear Dr. Knuth,}"
+[[exercises.checks]]
+pattern = 'Sincerely,'
+note = "the closing must read exactly: \\closing{Sincerely,}"
+[[exercises.checks]]
+pattern = 'Thank you for TEX'
+note = "the first paragraph must thank him for TeX"
+[[exercises.checks]]
+pattern = 'fighting a word processor'
+note = "the first paragraph mentions typesetting instead of fighting a word processor"
+[[exercises.checks]]
+pattern = 'line-breaking algorithm'
+note = "the second paragraph must mention the line-breaking algorithm"
+[[exercises.checks]]
+pattern = 'painfully stretched-out line'
+note = "the second paragraph should end by mentioning a painfully stretched-out line"
+
+# ── quizzes ────────────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "quiz1"
+dir = "quizzes"
+mode = "write"
+hint = """
+One document, every earlier trick: \\title/\\author/\\maketitle,
+\\section{...}, a nested \\begin{itemize} (an \\item whose body is itself
+another \\begin{itemize}...\\end{itemize}), escaped \\% and \\#, inline
+$\\varphi$ plus a \\[ ... \\] display equation, and a booktabs
+\\begin{tabular}{lc} with \\toprule/\\midrule/\\bottomrule. Build it one
+checklist item at a time."""
+[[exercises.checks]]
+pattern = 'The Gauntlet'
+note = "add a title block: \\title{The Gauntlet}, \\author{...}, \\maketitle"
+[[exercises.checks]]
+pattern = '1 Everything At Once'
+note = "add \\section{Everything At Once}"
+[[exercises.checks]]
+pattern = 'Warm-up topics'
+note = "top-level list item: Warm-up topics"
+[[exercises.checks]]
+pattern = 'Escaping reserved characters'
+note = "nested sub-item under Warm-up topics: Escaping reserved characters"
+[[exercises.checks]]
+pattern = 'Advanced topics'
+note = "top-level list item: Advanced topics"
+[[exercises.checks]]
+pattern = 'Bibliographies'
+note = "nested sub-item under Advanced topics: Bibliographies"
+[[exercises.checks]]
+pattern = '50% this quarter'
+note = "escape the percent sign: Sales grew by 50\\% this quarter..."
+[[exercises.checks]]
+pattern = 'customer #1'
+note = "escape the hash sign: ...customer \\#1 on our leaderboard."
+[[exercises.checks]]
+pattern = 'φ2 = φ \+ 1'
+note = "display equation: \\[ \\varphi^2 = \\varphi + 1. \\]"
+[[exercises.checks]]
+pattern = 'φ 1/φ'
+note = "the table's Quantity column must list $\\varphi$ then $1/\\varphi$"

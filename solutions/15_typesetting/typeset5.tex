@@ -1,0 +1,25 @@
+% typeset5 solution: the letter documentclass, opening/body/closing.
+
+\documentclass{letter}
+\signature{A. Student}
+\address{123 Library Lane \\ Cambridge, MA}
+
+\begin{document}
+
+\begin{letter}{Prof. Donald E. Knuth \\ Stanford University \\ Stanford, CA}
+
+\opening{Dear Dr. Knuth,}
+
+Thank you for \TeX{}. I have spent the semester typesetting my own
+documents instead of fighting a word processor, and it has changed how
+I think about writing.
+
+The line-breaking algorithm still amazes me: it looks at the whole
+paragraph at once instead of one line at a time, which is why your
+paragraphs never end with a painfully stretched-out line.
+
+\closing{Sincerely,}
+
+\end{letter}
+
+\end{document}

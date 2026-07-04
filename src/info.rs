@@ -127,7 +127,13 @@ fn state_path(root: &Path) -> PathBuf {
 
 pub fn load_done(root: &Path) -> BTreeSet<String> {
     fs::read_to_string(state_path(root))
-        .map(|s| s.lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from).collect())
+        .map(|s| {
+            s.lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .map(String::from)
+                .collect()
+        })
         .unwrap_or_default()
 }
 

@@ -1,0 +1,16 @@
+% bib2 solution: fix the misspelled \end{thebibliography}.
+% (The cite key still doesn't match any \bibitem -- that's intentional;
+% it's still just a warning, and the PDF still renders a [?] for it.)
+
+\documentclass{article}
+
+\begin{document}
+
+As shown by \cite{knuth1984}, typesetting is a deep subject.
+
+\begin{thebibliography}{9}
+\bibitem{knuth84}
+Donald E. Knuth. \textit{The \TeX{}book}. Addison-Wesley, 1984.
+\end{thebibliography}
+
+\end{document}

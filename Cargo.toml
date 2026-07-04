@@ -1,6 +1,6 @@
 [package]
 name = "latexlings"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 description = "Small exercises to learn writing, debugging, and typesetting LaTeX in the terminal — inspired by rustlings"
 license = "MIT"

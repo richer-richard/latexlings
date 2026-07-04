@@ -1,0 +1,34 @@
+% typeset2.tex  -- the theorem
+%
+% State the AM-GM inequality for two variables, then prove it. Typeset
+% exactly this:
+%
+%   sentence (before the display equation):
+%     For any two nonnegative real numbers a and b, the arithmetic mean
+%     is at least the geometric mean:
+%
+%   display equation:
+%     \[ \frac{a+b}{2} \geq \sqrt{ab}. \]
+%
+%   then a proof, introduced by the word "Proof." (e.g. \textit{Proof.}),
+%   as a 3-line align* derivation:
+%     (\sqrt{a} - \sqrt{b})^2 \geq 0
+%     a - 2\sqrt{ab} + b \geq 0
+%     \frac{a+b}{2} \geq \sqrt{ab}
+%   (a square is never negative -- expand it, rearrange, done.)
+%
+% You'll need \usepackage{amsmath} for the align* environment, and & to
+% align each line's relation symbol.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint typeset2
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+Replace this placeholder with the AM-GM statement, the display
+equation, and the proof described above.
+
+\end{document}

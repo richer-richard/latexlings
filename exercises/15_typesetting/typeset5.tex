@@ -1,0 +1,49 @@
+% typeset5.tex  -- the letter
+%
+% The `letter` documentclass is a different beast: no \maketitle, no
+% \section -- instead \begin{letter}{recipient address} wraps the whole
+% message, with \opening and \closing standing in for greeting and
+% sign-off. The preamble needs \address{your address} and
+% \signature{your name}, even though neither sits inside the letter body.
+%
+% Typeset exactly this letter:
+%
+%   recipient (the argument to \begin{letter}{...}):
+%     Prof. Donald E. Knuth \\ Stanford University \\ Stanford, CA
+%
+%   \opening{Dear Dr. Knuth,}
+%
+%   body, two short paragraphs:
+%     1. Thank him for TeX -- mention that you've spent the semester
+%        typesetting your own documents instead of fighting a word
+%        processor, and it has changed how you think about writing.
+%     2. Say the line-breaking algorithm still amazes you: it looks at
+%        the whole paragraph at once instead of one line at a time,
+%        which is why his paragraphs never end with a painfully
+%        stretched-out line.
+%
+%   \closing{Sincerely,}
+%
+% Use \\ inside the recipient argument to break it onto separate lines.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint typeset5
+
+% I AM NOT DONE
+
+\documentclass{letter}
+\signature{your name}
+\address{your address}
+
+\begin{document}
+
+\begin{letter}{recipient address}
+
+\opening{Dear Sir or Madam,}
+
+Replace this placeholder body with the two paragraphs described above.
+
+\closing{Regards,}
+
+\end{letter}
+
+\end{document}

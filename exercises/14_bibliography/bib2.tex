@@ -1,0 +1,32 @@
+% bib2.tex
+%
+% \cite{key} and \bibitem{key} are two halves of the same handshake:
+% \cite prints the matching \bibitem's number wherever you put it in
+% the text. If the keys don't match, LaTeX can't find the entry -- but
+% notice that's only a WARNING ("Citation ... undefined"), rendered as
+% a [?] in the PDF. It does not stop the build.
+%
+% What DOES stop the build here is a typo in \end{thebibliography} --
+% environments must open and close with the exact same name, just like
+% \begin{document} and \end{document} back in intro2.
+%
+% Fix the misspelled \end line so it matches \begin{thebibliography}.
+% (Leave the mismatched cite key alone for now -- once it compiles,
+% look for the [?] in the PDF and remember why it's there.)
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint bib2
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+As shown by \cite{knuth1984}, typesetting is a deep subject.
+
+\begin{thebibliography}{9}
+\bibitem{knuth84}
+Donald E. Knuth. \textit{The \TeX{}book}. Addison-Wesley, 1984.
+\end{thebibliograpy}
+
+\end{document}

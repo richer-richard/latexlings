@@ -54,7 +54,19 @@ fn cmd_run(root: &Path, ex: &Exercise) -> Result<bool> {
         }
         verify::Status::ToolMissing(msg) => println!("✗ {msg}"),
     }
+    if status.is_done() {
+        mark_done(root, &ex.name)?;
+    }
     Ok(status.is_done())
+}
+
+/// Persist a completed exercise so watch/list agree with run/verify.
+fn mark_done(root: &Path, name: &str) -> Result<()> {
+    let mut done = info::load_done(root);
+    if done.insert(name.to_string()) {
+        info::save_done(root, &done)?;
+    }
+    Ok(())
 }
 
 fn cmd_verify(root: &Path, exercises: &[Exercise]) -> Result<bool> {
@@ -63,6 +75,9 @@ fn cmd_verify(root: &Path, exercises: &[Exercise]) -> Result<bool> {
     for (i, ex) in exercises.iter().enumerate() {
         let status = verify::verify(root, ex);
         let ok = status.is_done();
+        if ok {
+            mark_done(root, &ex.name)?;
+        }
         all_ok &= ok;
         println!(
             "[{:>3}/{total}] {} {} — {}",

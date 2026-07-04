@@ -1,0 +1,22 @@
+% typeset2 solution: state AM-GM, then prove it with a 3-line align*.
+
+\documentclass{article}
+\usepackage{amsmath}
+
+\begin{document}
+
+For any two nonnegative real numbers $a$ and $b$, the arithmetic mean is
+at least the geometric mean:
+\[
+\frac{a+b}{2} \geq \sqrt{ab}.
+\]
+
+\noindent\textit{Proof.} Since a square is never negative,
+\begin{align*}
+(\sqrt{a} - \sqrt{b})^2 &\geq 0 \\
+a - 2\sqrt{ab} + b &\geq 0 \\
+\frac{a+b}{2} &\geq \sqrt{ab}
+\end{align*}
+which is what we wanted to show.
+
+\end{document}

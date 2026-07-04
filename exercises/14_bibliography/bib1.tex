@@ -1,0 +1,29 @@
+% bib1.tex
+%
+% thebibliography is not a plain list -- it's built on LaTeX's internal
+% list machinery, and that machinery needs to know, up front, how wide
+% the widest label will be. That's what the mandatory argument to
+% \begin{thebibliography}{...} is for: a placeholder whose LENGTH
+% matters, not its value -- "9" reserves room for a one-digit label,
+% "99" for two digits.
+%
+% This environment is missing that argument entirely, so \bibitem has
+% nowhere to put its label and LaTeX throws an obscure-looking error.
+% Give \begin{thebibliography} a widest-label argument, e.g. {9}.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint bib1
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+Every reference below needs a home.
+
+\begin{thebibliography}
+\bibitem{knuth84}
+Donald E. Knuth. \textit{The \TeX{}book}. Addison-Wesley, 1984.
+\end{thebibliography}
+
+\end{document}
