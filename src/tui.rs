@@ -1,0 +1,408 @@
+//! The watch/list TUI, in the spirit of rustlings' watch mode.
+
+use crate::info::{self, Exercise, MARKER};
+use crate::verify::{verify, Status};
+use anyhow::Result;
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span, Text};
+use ratatui::widgets::{Block, Borders, Cell, Gauge, Paragraph, Row, Table, TableState, Wrap};
+use ratatui::{DefaultTerminal, Frame};
+use std::collections::BTreeSet;
+use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
+
+const ACCENT: Color = Color::Green;
+
+#[derive(PartialEq)]
+enum UiMode {
+    Watch,
+    List,
+}
+
+pub struct App {
+    root: PathBuf,
+    exercises: Vec<Exercise>,
+    done: BTreeSet<String>,
+    current: usize,
+    status: Option<Status>,
+    show_hint: bool,
+    scroll: u16,
+    mode: UiMode,
+    list_state: TableState,
+    last_mtime: Option<SystemTime>,
+    dirty: bool,
+    flash: Option<String>,
+}
+
+impl App {
+    pub fn new(root: PathBuf, exercises: Vec<Exercise>) -> Self {
+        let done = info::load_done(&root);
+        let current = exercises
+            .iter()
+            .position(|e| !done.contains(&e.name))
+            .unwrap_or(exercises.len());
+        let mut list_state = TableState::default();
+        list_state.select(Some(current.min(exercises.len().saturating_sub(1))));
+        Self {
+            root,
+            exercises,
+            done,
+            current,
+            status: None,
+            show_hint: false,
+            scroll: 0,
+            mode: UiMode::Watch,
+            list_state,
+            last_mtime: None,
+            dirty: true,
+            flash: None,
+        }
+    }
+
+    fn all_done(&self) -> bool {
+        self.current >= self.exercises.len()
+    }
+
+    fn cur(&self) -> Option<&Exercise> {
+        self.exercises.get(self.current)
+    }
+
+    fn mtime(&self) -> Option<SystemTime> {
+        self.cur()
+            .and_then(|e| std::fs::metadata(e.path(&self.root)).ok())
+            .and_then(|m| m.modified().ok())
+    }
+
+    fn advance(&mut self) {
+        let next = self
+            .exercises
+            .iter()
+            .enumerate()
+            .skip(self.current + 1)
+            .find(|(_, e)| !self.done.contains(&e.name))
+            .map(|(i, _)| i)
+            .or_else(|| {
+                self.exercises
+                    .iter()
+                    .position(|e| !self.done.contains(&e.name))
+            });
+        self.current = next.unwrap_or(self.exercises.len());
+        self.status = None;
+        self.show_hint = false;
+        self.scroll = 0;
+        self.last_mtime = None;
+        self.dirty = !self.all_done();
+    }
+}
+
+pub fn run_watch(root: PathBuf, exercises: Vec<Exercise>) -> Result<()> {
+    let mut terminal = ratatui::init();
+    let app = App::new(root, exercises);
+    let result = event_loop(&mut terminal, app);
+    ratatui::restore();
+    result
+}
+
+fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
+    loop {
+        if app.dirty && !app.all_done() {
+            app.flash = Some("compiling…".into());
+            terminal.draw(|f| draw(f, &mut app))?;
+            let ex = app.cur().unwrap().clone();
+            let status = verify(&app.root, &ex);
+            if status.is_done() && app.done.insert(ex.name.clone()) {
+                info::save_done(&app.root, &app.done)?;
+            }
+            app.status = Some(status);
+            app.flash = None;
+            app.last_mtime = app.mtime();
+            app.dirty = false;
+        }
+        terminal.draw(|f| draw(f, &mut app))?;
+
+        if event::poll(Duration::from_millis(250))? {
+            match event::read()? {
+                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    let ctrl_c = key.code == KeyCode::Char('c')
+                        && key.modifiers.contains(KeyModifiers::CONTROL);
+                    if ctrl_c {
+                        return Ok(());
+                    }
+                    match app.mode {
+                        UiMode::Watch => match key.code {
+                            KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                            KeyCode::Char('n') => {
+                                if matches!(app.status, Some(Status::Done)) {
+                                    app.advance();
+                                }
+                            }
+                            KeyCode::Char('h') => app.show_hint = !app.show_hint,
+                            KeyCode::Char('r') => app.dirty = true,
+                            KeyCode::Char('l') => {
+                                app.list_state.select(Some(
+                                    app.current.min(app.exercises.len().saturating_sub(1)),
+                                ));
+                                app.mode = UiMode::List;
+                            }
+                            KeyCode::Up => app.scroll = app.scroll.saturating_sub(1),
+                            KeyCode::Down => app.scroll = app.scroll.saturating_add(1),
+                            KeyCode::PageUp => app.scroll = app.scroll.saturating_sub(10),
+                            KeyCode::PageDown => app.scroll = app.scroll.saturating_add(10),
+                            _ => {}
+                        },
+                        UiMode::List => match key.code {
+                            KeyCode::Char('q') | KeyCode::Esc | KeyCode::Char('l') => {
+                                app.mode = UiMode::Watch
+                            }
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                let i = app.list_state.selected().unwrap_or(0);
+                                app.list_state.select(Some(i.saturating_sub(1)));
+                            }
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                let i = app.list_state.selected().unwrap_or(0);
+                                app.list_state
+                                    .select(Some((i + 1).min(app.exercises.len() - 1)));
+                            }
+                            KeyCode::Enter => {
+                                if let Some(i) = app.list_state.selected() {
+                                    app.current = i;
+                                    app.status = None;
+                                    app.scroll = 0;
+                                    app.show_hint = false;
+                                    app.dirty = true;
+                                    app.mode = UiMode::Watch;
+                                }
+                            }
+                            KeyCode::Char('r') => {
+                                if let Some(i) = app.list_state.selected() {
+                                    let ex = app.exercises[i].clone();
+                                    info::reset(&app.root, &ex)?;
+                                    app.done.remove(&ex.name);
+                                    info::save_done(&app.root, &app.done)?;
+                                    if i == app.current {
+                                        app.dirty = true;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        },
+                    }
+                }
+                Event::Resize(_, _) => {}
+                _ => {}
+            }
+        } else if app.mode == UiMode::Watch && !app.all_done() {
+            // tick: watch the current file for changes
+            let now = app.mtime();
+            if now.is_some() && now != app.last_mtime {
+                app.dirty = true;
+            }
+        }
+    }
+}
+
+fn draw(frame: &mut Frame, app: &mut App) {
+    let [header, main, footer] =
+        Layout::vertical([Constraint::Length(3), Constraint::Min(4), Constraint::Length(1)])
+            .areas(frame.area());
+    draw_progress(frame, header, app);
+    match app.mode {
+        UiMode::Watch => draw_watch(frame, main, app),
+        UiMode::List => draw_list(frame, main, app),
+    }
+    draw_footer(frame, footer, app);
+}
+
+fn draw_progress(frame: &mut Frame, area: Rect, app: &App) {
+    let done = app.done.len();
+    let total = app.exercises.len();
+    let ratio = if total == 0 { 0.0 } else { done as f64 / total as f64 };
+    let gauge = Gauge::default()
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(Span::styled(
+                    " latexlings ",
+                    Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+                ))
+                .title(Line::from(format!(" {done}/{total} done ")).right_aligned()),
+        )
+        .gauge_style(Style::default().fg(ACCENT))
+        .ratio(ratio)
+        .label(format!("{:.0}%", ratio * 100.0));
+    frame.render_widget(gauge, area);
+}
+
+fn draw_watch(frame: &mut Frame, area: Rect, app: &App) {
+    if app.all_done() {
+        let text = Text::from(vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  ✓ ALL EXERCISES COMPLETE",
+                Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+            )),
+            Line::from(""),
+            Line::from("  You have typeset your way through the whole course."),
+            Line::from("  Write something real now — a problem set, a paper, a resume."),
+            Line::from(""),
+            Line::from("  (l: browse exercises · r in the list resets one · q: quit)"),
+        ]);
+        frame.render_widget(
+            Paragraph::new(text).block(Block::default().borders(Borders::ALL)),
+            area,
+        );
+        return;
+    }
+    let ex = app.cur().unwrap();
+    let title = format!(" {} [{}] ", ex.rel_path(), ex.mode.label());
+    let mut lines: Vec<Line> = Vec::new();
+    lines.push(Line::from(""));
+    match (&app.flash, &app.status) {
+        (Some(msg), _) => {
+            lines.push(Line::from(Span::styled(
+                format!("  ⟳ {msg}"),
+                Style::default().fg(Color::Yellow),
+            )));
+        }
+        (None, Some(Status::Done)) => {
+            lines.push(Line::from(Span::styled(
+                "  ✓ exercise complete — press n to continue",
+                Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+            )));
+        }
+        (None, Some(Status::MarkerPresent)) => {
+            lines.push(Line::from(Span::styled(
+                "  ✓ compiles and passes all checks!",
+                Style::default().fg(ACCENT),
+            )));
+            lines.push(Line::from(""));
+            lines.push(Line::from(format!(
+                "    Read the output, then delete the `% {MARKER}` line to finish."
+            )));
+        }
+        (None, Some(Status::CompileFail(err))) => {
+            lines.push(Line::from(Span::styled(
+                "  ✗ pdflatex failed:",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )));
+            lines.push(Line::from(""));
+            for l in err.lines() {
+                lines.push(Line::from(Span::styled(
+                    format!("    {l}"),
+                    Style::default().fg(Color::Red),
+                )));
+            }
+        }
+        (None, Some(Status::ChecksFail(notes, excerpt))) => {
+            lines.push(Line::from(Span::styled(
+                "  ✗ compiles, but the rendered output isn't right yet:",
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            )));
+            lines.push(Line::from(""));
+            for n in notes {
+                lines.push(Line::from(Span::styled(
+                    format!("    • {n}"),
+                    Style::default().fg(Color::Yellow),
+                )));
+            }
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "    rendered text starts with:",
+                Style::default().fg(Color::DarkGray),
+            )));
+            lines.push(Line::from(Span::styled(
+                format!("    {excerpt}"),
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+        (None, Some(Status::ToolMissing(msg))) => {
+            lines.push(Line::from(Span::styled(
+                "  ✗ missing tool:",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )));
+            for l in msg.lines() {
+                lines.push(Line::from(format!("    {l}")));
+            }
+        }
+        (None, None) => {
+            lines.push(Line::from("  waiting for first compile…"));
+        }
+    }
+    if app.show_hint {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "  ── hint ────────────────────────────────",
+            Style::default().fg(Color::Cyan),
+        )));
+        for l in ex.hint.lines() {
+            lines.push(Line::from(Span::styled(
+                format!("  {l}"),
+                Style::default().fg(Color::Cyan),
+            )));
+        }
+    }
+    let para = Paragraph::new(Text::from(lines))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(Span::styled(title, Style::default().add_modifier(Modifier::BOLD))),
+        )
+        .wrap(Wrap { trim: false })
+        .scroll((app.scroll, 0));
+    frame.render_widget(para, area);
+}
+
+fn draw_list(frame: &mut Frame, area: Rect, app: &mut App) {
+    let rows: Vec<Row> = app
+        .exercises
+        .iter()
+        .enumerate()
+        .map(|(i, e)| {
+            let done = app.done.contains(&e.name);
+            let icon = if done {
+                Span::styled("✓", Style::default().fg(ACCENT))
+            } else if i == app.current {
+                Span::styled("→", Style::default().fg(Color::Yellow))
+            } else {
+                Span::raw("·")
+            };
+            Row::new(vec![
+                Cell::from(icon),
+                Cell::from(format!("{:>3}", i + 1)),
+                Cell::from(e.name.clone()),
+                Cell::from(e.dir.clone()),
+                Cell::from(e.mode.label()),
+            ])
+        })
+        .collect();
+    let table = Table::new(
+        rows,
+        [
+            Constraint::Length(2),
+            Constraint::Length(4),
+            Constraint::Length(24),
+            Constraint::Length(22),
+            Constraint::Length(6),
+        ],
+    )
+    .header(
+        Row::new(vec!["", "#", "exercise", "topic", "mode"])
+            .style(Style::default().add_modifier(Modifier::BOLD)),
+    )
+    .row_highlight_style(Style::default().bg(Color::DarkGray))
+    .block(Block::default().borders(Borders::ALL).title(" exercises "));
+    frame.render_stateful_widget(table, area, &mut app.list_state);
+}
+
+fn draw_footer(frame: &mut Frame, area: Rect, app: &App) {
+    let keys = match app.mode {
+        UiMode::Watch => "  n:next  h:hint  l:list  r:recompile  ↑↓:scroll  q:quit",
+        UiMode::List => "  ↑↓/jk:move  enter:work on this  r:reset  esc:back  q:back",
+    };
+    frame.render_widget(
+        Paragraph::new(Span::styled(keys, Style::default().fg(Color::DarkGray))),
+        area,
+    );
+}

@@ -1,0 +1,22 @@
+[package]
+name = "latexlings"
+version = "0.1.0"
+edition = "2021"
+description = "Small exercises to learn writing, debugging, and typesetting LaTeX in the terminal — inspired by rustlings"
+license = "MIT"
+repository = "https://github.com/richer-richard/latexlings"
+readme = "README.md"
+keywords = ["latex", "learning", "exercises", "tex", "typesetting"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+anyhow = "1"
+crossterm = "0.28"
+include_dir = "0.7"
+ratatui = "0.29"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+
+[profile.release]
+strip = true

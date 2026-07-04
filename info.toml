@@ -1,0 +1,106 @@
+# latexlings exercise manifest.
+#
+# Ordering here is course order. Fields:
+#   name   unique exercise id            -> exercises/<dir>/<name>.tex
+#   dir    topic directory
+#   mode   "fix"   = file is broken, make it compile
+#          "write" = skeleton compiles, typeset the requested content;
+#                    `checks` regexes run against the pdftotext of the PDF
+#   hint   shown by `latexlings hint <name>` / h in watch mode
+#
+# [[exercises.checks]] entries: `pattern` is a regex matched against the
+# whitespace-normalized rendered text; `note` is the human message shown
+# when it fails.
+
+# ── 00_intro ────────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "intro1"
+dir = "00_intro"
+mode = "fix"
+compiles_as_shipped = true
+hint = """
+No fixing needed. Delete the whole `% I AM NOT DONE` line, save with :w,
+and press n in the watch window."""
+
+[[exercises]]
+name = "intro2"
+dir = "00_intro"
+mode = "fix"
+hint = """
+The error is:  ! LaTeX Error: \\begin{document} ended by \\end{documnet}.
+LaTeX quotes the misspelled name right back at you. Fix the spelling in
+the \\end line so it matches \\begin{document}."""
+
+# ── 01_documents ────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "documents1"
+dir = "01_documents"
+mode = "fix"
+hint = """
+"Missing \\begin{document}" means: pdflatex met CONTENT while still in
+the preamble. The fix is not to add another \\begin{document} -- move the
+stray sentence below the existing one."""
+
+[[exercises]]
+name = "documents2"
+dir = "01_documents"
+mode = "fix"
+hint = """
+"Can be used only in preamble" -- \\usepackage is one of those commands.
+Move the \\usepackage{graphicx} line above \\begin{document}."""
+
+[[exercises]]
+name = "documents3"
+dir = "01_documents"
+mode = "fix"
+hint = """
+Add to the preamble (between \\documentclass and \\begin{document}):
+    \\title{anything you like}
+    \\author{you}
+    \\date{\\today}
+\\maketitle can only render metadata that exists."""
+
+# ── 02_text ─────────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "text1"
+dir = "02_text"
+mode = "fix"
+hint = """
+Four reserved characters are used bare in the paragraph: # _ & $.
+Escape each with a backslash: \\#1, market\\_share, \\&, \\$5.
+(A bare % would not error -- it silently comments out the rest of the
+line. ~ silently becomes a non-breaking space. The loud ones you fix
+here; remember the quiet ones.)"""
+
+[[exercises]]
+name = "text2"
+dir = "02_text"
+mode = "write"
+hint = """
+The sentence to typeset:
+    The word ``typeset'' --- believe it or not --- has been in use
+    since 1846.
+Type it into the body exactly like that: two backticks for the opening
+quote, two apostrophes for the closing quote, three hyphens for each em
+dash. LaTeX turns them into the right glyphs."""
+[[exercises.checks]]
+pattern = "“typeset”"
+note = "the word typeset must be wrapped in CURLY quotes (`` and '' in LaTeX)"
+[[exercises.checks]]
+pattern = "— ?believe it or not ?—"
+note = "use em dashes (---) around 'believe it or not', not hyphens"
+[[exercises.checks]]
+pattern = "has been in use since 1846"
+note = "the sentence should end with: has been in use since 1846."
+
+[[exercises]]
+name = "text3"
+dir = "02_text"
+mode = "fix"
+hint = """
+"Runaway argument" = an argument that never ended = an unclosed brace.
+The opening brace of \\textbf{ has no partner. Decide where the bold
+should stop and close it there: \\textbf{greatest discoveries}."""

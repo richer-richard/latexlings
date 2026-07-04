@@ -1,0 +1,20 @@
+% documents1.tex
+%
+% A .tex file has two zones. Before \begin{document} is the PREAMBLE:
+% class, packages, metadata -- configuration only. After it is the BODY:
+% the content that gets typeset.
+%
+% Somebody left prose lying around in the preamble, and pdflatex refuses
+% to typeset text there. Move the sentence where it belongs.
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+This sentence is sitting in the wrong zone entirely.
+
+\begin{document}
+
+The preamble is for configuration; the body is for content.
+
+\end{document}

@@ -1,0 +1,21 @@
+% text3.tex
+%
+% Braces group. Every { must be matched by a }, and commands like
+% \textbf{...} take their argument in braces. Leave one open and
+% pdflatex scans forward forever looking for the close -- the error
+% says "Runaway argument" or "File ended while scanning use of \textbf".
+%
+% Find the unmatched brace. (In vim, put the cursor on a brace and
+% press % to jump to its partner -- if it has one.)
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+Some of the \textbf{greatest discoveries in \emph{science} were made
+by accident. Emphasis is a scoped command: it applies to exactly what
+sits inside its braces, nothing more.
+
+\end{document}

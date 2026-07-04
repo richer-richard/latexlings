@@ -1,0 +1,4 @@
+/target
+build/
+.latexlings-state.txt
+.DS_Store
