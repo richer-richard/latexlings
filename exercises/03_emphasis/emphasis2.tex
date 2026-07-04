@@ -1,0 +1,22 @@
+% emphasis2.tex
+%
+% Last time a brace was missing. This time there's one too many: every
+% \textbf{...} closes cleanly, but a stray extra } is left over after it,
+% outside any command that wants one.
+%
+% pdflatex reads that leftover } as "close a group" -- but no group is
+% open, so it complains the moment it hits it: "Too many }'s". The line
+% number in the error points right at the culprit.
+%
+% Find the } that has no matching { and delete it.
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+The results were \textbf{surprising} to everyone}, especially the
+committee.
+
+\end{document}

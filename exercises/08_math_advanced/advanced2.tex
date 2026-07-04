@@ -1,0 +1,19 @@
+% advanced2.tex
+%
+% \right needs a DELIMITER right after it -- a paren, a bracket, a
+% pipe, or an escaped brace \}. A bare } is not a delimiter, it is the
+% character that closes a TeX group, so \right} does not mean "close
+% with a brace" -- it means "close the \left, then immediately end a
+% group that was never opened." TeX complains: "Missing delimiter (.
+% inserted)."
+%
+% Escape the closing brace: \right\}.
+
+% I AM NOT DONE
+
+\documentclass{article}
+\begin{document}
+
+The positive reals form the set $\left\{ x : x > 0 \right}$.
+
+\end{document}

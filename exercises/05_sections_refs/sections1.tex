@@ -1,0 +1,29 @@
+% sections1.tex
+%
+% \section takes its title in braces, just like \textbf does -- and the
+% same brace-matching rules apply: leave the brace open and you get
+% another runaway argument, same family as emphasis1.
+%
+% This time the flavor is different because \section doesn't grab its
+% own argument directly -- it hands off to an internal helper macro.
+% Below, \section{Introduction is missing its closing brace. pdflatex
+% scans forward through the whole paragraph and gives up at end of file:
+%   Runaway argument?
+%   {Introduction \par This paper presents our findings on the topic. ...
+%   ! File ended while scanning use of \@xdblarg.
+% \@xdblarg looks scary and internal -- it is -- but the fix is exactly
+% the one you already know: find the { that never got its }.
+%
+% Close the brace right after the title.
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\section{Introduction
+
+This paper presents our findings on the topic.
+
+\end{document}

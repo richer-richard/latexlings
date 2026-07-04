@@ -1,0 +1,28 @@
+% macros3.tex
+%
+% \newcommand only stores its body -- it never checks that every
+% command inside that body actually exists. That check happens later,
+% at expansion time, when the macro is finally USED:
+%   ! Undefined control sequence.
+%   \R ->\mathbb
+% \mathbb comes from the amssymb (or amsfonts) package, which isn't
+% loaded here. Notice where the error is reported: at the line that
+% calls \R, not at the \newcommand line above it, which compiles fine
+% on its own. Macro errors surface where a macro is used, not where
+% it's defined.
+%
+% Add \usepackage{amssymb} to the preamble.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint macros3
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\newcommand{\R}{\ensuremath{\mathbb{R}}}
+
+\begin{document}
+
+The set \R is the reals.
+
+\end{document}

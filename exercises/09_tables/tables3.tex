@@ -1,0 +1,28 @@
+% tables3.tex
+%
+% \hline draws a horizontal rule BETWEEN rows -- it belongs on its own,
+% after a row's \\ and before the next row starts, never inside a row
+% before that row's own \\. Put it there instead and pdflatex says:
+%   ! Misplaced \noalign.
+% (\hline expands to \noalign{...} internally; "misplaced" means it
+% turned up in the middle of building a row, where only cell content
+% is expected.)
+%
+% Move \hline so it sits on its own line, between the two rows it
+% should separate.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint tables3
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\begin{tabular}{ll}
+Name & Score \\
+Alice & 92 \hline \\
+Bob & 88 \\
+\end{tabular}
+
+\end{document}

@@ -1,0 +1,23 @@
+% tables2.tex
+%
+% Every \begin{tabular} needs a matching \end{tabular}. Without one,
+% pdflatex keeps scanning for the close and only gives up when it hits
+% \end{document} instead:
+%   ! LaTeX Error: \begin{tabular} on input line N ended by \end{document}.
+%
+% Add the missing \end{tabular} in the right place.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint tables2
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\begin{tabular}{ll}
+Name & Score \\
+Alice & 92 \\
+Bob & 88 \\
+
+\end{document}

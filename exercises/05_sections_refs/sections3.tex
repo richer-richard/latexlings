@@ -1,0 +1,28 @@
+% sections3.tex
+%
+% \begin{abstract}...\end{abstract} is a real environment in the article
+% class, used for the short summary before your first \section. Like any
+% environment, its \end has to actually show up.
+%
+% Below, \begin{abstract} is never closed. pdflatex reads all the way to
+% \end{document} without finding \end{abstract}, and reports the
+% environment as still open when the file runs out: "\begin{abstract} on
+% input line N ended by \end{document}".
+%
+% Add the missing \end{abstract} right after the summary paragraph, before
+% \section{Introduction} starts.
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\begin{abstract}
+This paper explores unresolved issues in modern typesetting.
+
+\section{Introduction}
+
+We begin our discussion here.
+
+\end{document}

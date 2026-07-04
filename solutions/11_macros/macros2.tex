@@ -1,0 +1,12 @@
+% macros2 solution: body now only references #1 and #2, matching the
+% declared two-argument arity.
+
+\documentclass{article}
+
+\newcommand{\pair}[2]{(#1, #2)}
+
+\begin{document}
+
+The point \pair{3}{4} sits in the plane.
+
+\end{document}

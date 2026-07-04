@@ -1,0 +1,12 @@
+% macros1 solution: renamed to \myemph -- an unclaimed name -- instead
+% of overwriting the kernel's \emph.
+
+\documentclass{article}
+
+\newcommand{\myemph}[1]{\textbf{#1}}
+
+\begin{document}
+
+This sentence uses \myemph{a custom emphasis command}.
+
+\end{document}

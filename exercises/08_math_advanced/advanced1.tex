@@ -1,0 +1,21 @@
+% advanced1.tex
+%
+% \left and \right auto-size a pair of delimiters to fit whatever they
+% wrap. They are a strict pair: every \left needs its own \right
+% somewhere later in the same math expression. Leave one dangling and
+% TeX searches all the way to the end of the math looking for a
+% partner, then patches one in and tells you: "Missing \right.
+% inserted."
+%
+% Add the missing \right immediately after the fraction it should
+% close, with a matching closing delimiter.
+
+% I AM NOT DONE
+
+\documentclass{article}
+\begin{document}
+
+As $c$ shrinks toward zero, the quantity $\left( \frac{a+b}{c} $ grows
+without bound.
+
+\end{document}

@@ -1,0 +1,19 @@
+% math1.tex
+%
+% Inline math lives between a matching pair of dollar signs: $ ... $.
+% Open one without closing it and pdflatex has nothing to tell it where
+% the equation ends -- it keeps reading in math mode straight through
+% the rest of the paragraph and dies with "Missing $ inserted."
+%
+% Find the dollar sign that opens the sentence below and add its
+% missing partner right after the part that is meant to be math.
+
+% I AM NOT DONE
+
+\documentclass{article}
+\begin{document}
+
+The area of a circle with radius $r is \pi r^2 square units, a formula
+known since antiquity.
+
+\end{document}

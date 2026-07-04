@@ -1,0 +1,26 @@
+% tables1.tex
+%
+% tabular's column spec {ll} promises exactly two cells per row. Add a
+% third &-separated cell to a row and pdflatex has one cell too many --
+% it doesn't know where that extra ampersand was supposed to send it,
+% so it inserts a row break on its own and complains:
+%   ! Extra alignment tab has been changed to \cr.
+%
+% Find the row with three cells crammed into a two-column table and
+% delete the extra cell.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint tables1
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\begin{tabular}{ll}
+Name & Score \\
+Alice & 92 & extra \\
+Bob & 88 \\
+\end{tabular}
+
+\end{document}

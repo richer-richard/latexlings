@@ -1,0 +1,29 @@
+% sections2.tex
+%
+% Misspell a command name and LaTeX doesn't guess what you meant -- it
+% just tells you flatly that the name doesn't exist: "Undefined control
+% sequence", followed by the exact text it choked on.
+%
+% Below, \tableofcontent is missing its final s. Read the error pdflatex
+% gives you: it names the broken command right back at you, the same way
+% it did for \end{documnet} back in intro2.
+%
+% Fix the spelling: \tableofcontents.
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\tableofcontent
+
+\section{Introduction}
+
+This paper presents our findings on the topic.
+
+\section{Conclusion}
+
+We summarize what we found.
+
+\end{document}

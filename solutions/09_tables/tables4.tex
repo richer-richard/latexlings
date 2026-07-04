@@ -1,0 +1,19 @@
+% tables4 solution: booktabs rules only above/below the header and at
+% the very end of the table -- nothing between the three data rows.
+
+\documentclass{article}
+\usepackage{booktabs}
+
+\begin{document}
+
+\begin{tabular}{lll}
+\toprule
+Tool & Purpose & Command \\
+\midrule
+vim & editing & vim doc.tex \\
+pdflatex & compiling & pdflatex doc.tex \\
+latexmk & watching & latexmk -pdf -pvc \\
+\bottomrule
+\end{tabular}
+
+\end{document}

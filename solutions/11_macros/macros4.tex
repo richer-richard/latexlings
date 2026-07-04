@@ -1,0 +1,18 @@
+% macros4 solution: one macro, \keyword, defined once and called three
+% times instead of repeating \textbf.
+
+\documentclass{article}
+
+\newcommand{\keyword}[1]{\textbf{#1}}
+
+\begin{document}
+
+Modern build systems rest on a few core ideas. A build is
+\keyword{reproducible} when the same inputs always produce the same
+outputs, no matter which machine ran it. A build is
+\keyword{incremental} when it recompiles only what changed since the
+last run, instead of starting over. Good tooling also relies on
+\keyword{caching}, so results that were already computed once can be
+reused instead of rebuilt from scratch.
+
+\end{document}

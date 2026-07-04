@@ -1,0 +1,24 @@
+% figures3.tex
+%
+% \caption belongs to a float -- it records the caption text that a
+% figure or table environment will typeset next to its number. Used
+% out in plain running text, outside any float, there's nothing for it
+% to attach to:
+%   ! LaTeX Error: \caption outside float.
+%
+% Either drop the \caption and just write the sentence as plain text,
+% or move the captioned material inside a \begin{figure}...\end{figure}
+% environment.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint figures3
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+Below is a quick note on our results. \caption{A caption in running text.}
+The numbers speak for themselves.
+
+\end{document}

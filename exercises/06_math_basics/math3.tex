@@ -1,0 +1,22 @@
+% math3.tex
+%
+% A superscript binds to exactly one token (or one braced group):
+% x^2n is not "x to the 2n" -- it is "x to the 2" followed by a stray
+% letter n, and it compiles just fine while meaning the wrong thing.
+% Braces fix that: x^{2n} groups the whole exponent.
+%
+% Stacking a second caret on top, like x^2^3, is not "x to the (2 to
+% the 3)" either -- TeX has no rule for which exponent binds first, so
+% it refuses outright: "Double superscript." Group with braces instead.
+
+% I AM NOT DONE
+
+\documentclass{article}
+\begin{document}
+
+The expression $x^2n$ compiles, but it typesets the exponent as $2$
+with a trailing $n$ -- not the exponent $2n$ you probably meant.
+Chasing that mistake with more carets, an even worse attempt is
+$x^2^3$.
+
+\end{document}

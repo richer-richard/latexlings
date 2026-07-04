@@ -1,0 +1,24 @@
+% macros2.tex
+%
+% \newcommand{\pair}[2]{...} declares exactly two parameters -- #1 and
+% #2 are the only placeholders the body is allowed to use. Reach for
+% #3 and there's no third argument to fill it with, so LaTeX rejects
+% the definition outright:
+%   ! Illegal parameter number in definition of \pair.
+%
+% The body only needs two values here. Change #3 back to #2 so the
+% body matches the declared [2].
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint macros2
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\newcommand{\pair}[2]{(#1, #3)}
+
+\begin{document}
+
+The point \pair{3}{4} sits in the plane.
+
+\end{document}

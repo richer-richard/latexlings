@@ -1,0 +1,23 @@
+% errors4.tex
+%
+% Two things stack here. Read the log carefully: the line it reports
+% is not the line where the mistake actually is -- the real cause is
+% above it. Find the % that shouldn't be there.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint errors4
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+This report covers three areas: build speed, test coverage, and
+release cadence. \textbf{The build speed numbers this quarter are
+the most important note% the closing brace we meant to type here got commented out
+and every team should read them before the next planning meeting.
+The rest of this paragraph just keeps going so the bold command
+keeps scanning for a closing brace that will never come, all the way
+down to the end of the document itself.
+
+\end{document}

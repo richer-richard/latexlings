@@ -1,0 +1,18 @@
+% math4.tex
+%
+% \sqrt takes an OPTIONAL argument in brackets for the root index:
+% \sqrt[3]{8} is the cube root. Brackets are not braces -- TeX will
+% happily read past a missing ] looking for one, gulping the rest of
+% the paragraph as the index and dying with "Paragraph ended before
+% \@sqrt was complete."
+%
+% Close the optional argument's bracket in the right place.
+
+% I AM NOT DONE
+
+\documentclass{article}
+\begin{document}
+
+The cube root of eight is two: $\sqrt[3{8} = 2$.
+
+\end{document}

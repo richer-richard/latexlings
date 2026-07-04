@@ -1,0 +1,22 @@
+% display2.tex
+%
+% Not every environment ships with LaTeX itself. align -- for lining
+% up a sequence of equations on their = signs -- is defined by the
+% amsmath package. Use it without loading that package and LaTeX has
+% never heard of it: "LaTeX Error: Environment align undefined."
+%
+% Add \usepackage{amsmath} to the preamble, above \begin{document}.
+
+% I AM NOT DONE
+
+\documentclass{article}
+\begin{document}
+
+Solving $2x + 3 = 11$ for $x$ proceeds one step at a time:
+\begin{align}
+  2x + 3 &= 11 \\
+  2x     &= 8  \\
+  x      &= 4
+\end{align}
+
+\end{document}

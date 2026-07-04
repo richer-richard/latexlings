@@ -1,0 +1,25 @@
+% lists2.tex
+%
+% Every \begin{name} needs an \end{name} with the exact same name --
+% itemize and enumerate are different environments (bullets vs. numbers)
+% and LaTeX will not let you open one and close the other.
+%
+% Below, \begin{itemize} is closed by \end{enumerate}. pdflatex catches
+% the mismatch immediately: "\begin{itemize} on input line N ended by
+% \end{enumerate}".
+%
+% Fix the \end line so its name matches the \begin line.
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\begin{itemize}
+\item Milk
+\item Eggs
+\item Bread
+\end{enumerate}
+
+\end{document}

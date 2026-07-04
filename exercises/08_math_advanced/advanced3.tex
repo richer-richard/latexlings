@@ -1,0 +1,20 @@
+% advanced3.tex
+%
+% Inside math mode, letters are read as italic variable names, one at
+% a time -- fine for a single symbol, useless for an English word.
+% \text{...} switches back to upright text for a stretch, but it is
+% not a core LaTeX command: it comes from amsmath (amstext). Without
+% the package, TeX has never heard of \text: "Undefined control
+% sequence."
+%
+% Add \usepackage{amsmath} to the preamble.
+
+% I AM NOT DONE
+
+\documentclass{article}
+\begin{document}
+
+Einstein's famous formula is $E = mc^2 \text{ where } c \text{ denotes
+the speed of light}$.
+
+\end{document}

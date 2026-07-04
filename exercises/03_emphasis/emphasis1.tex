@@ -1,0 +1,24 @@
+% emphasis1.tex
+%
+% Styles nest: \textbf{...} can contain \textit{...} inside it, and each
+% pair of braces must still close on its own. Losing track of which brace
+% belongs to which command is the single most common LaTeX mistake.
+%
+% Below, \textbf{ opens a bold run, \textit{the timing} opens and closes
+% an italic run inside it -- but the bold run itself never closes. pdflatex
+% keeps scanning for that missing brace all the way to \end{document} and
+% gives up with a runaway argument.
+%
+% Find the \textbf{ that never got its }. (In vim, put the cursor on a
+% brace and press % to jump to its partner -- if it has one.)
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+The results were \textbf{surprising, especially \textit{the timing} of
+the announcement, and the committee took note immediately.
+
+\end{document}

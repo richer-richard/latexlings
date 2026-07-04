@@ -1,0 +1,13 @@
+% macros3 solution: \usepackage{amssymb} added -- that package is what
+% defines \mathbb, the command \R's body expands to.
+
+\documentclass{article}
+\usepackage{amssymb}
+
+\newcommand{\R}{\ensuremath{\mathbb{R}}}
+
+\begin{document}
+
+The set \R is the reals.
+
+\end{document}

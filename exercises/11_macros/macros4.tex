@@ -1,0 +1,35 @@
+% macros4.tex -- write a macro, then reuse it (DRY)
+%
+% DRY: Don't Repeat Yourself. Instead of writing \textbf{...} for every
+% keyword you want to highlight, define ONE macro that means "this is
+% a keyword" and call it wherever you need one. Change your mind later
+% about how keywords should look, and you edit the macro once instead
+% of hunting down every \textbf in the document.
+%
+% Your job:
+%   1. In the preamble, define:
+%        \newcommand{\keyword}[1]{\textbf{#1}}
+%   2. In the body, write a short paragraph about build systems that
+%      calls \keyword{...} at least three times, wrapping these three
+%      terms somewhere in your sentences: reproducible, incremental,
+%      caching.
+%
+% latexlings checks the rendered PDF text for those three words. A
+% text-only check can't tell bold from plain, so it can't catch
+% someone who just typed \textbf{} three times instead of defining
+% \keyword -- but that misses the point of the exercise. Define the
+% macro. Reuse it.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint macros4
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+Replace this placeholder with a short paragraph about build systems.
+Define your own one-argument macro in the preamble above, then call it
+at least three times below to mark up important terms.
+
+\end{document}

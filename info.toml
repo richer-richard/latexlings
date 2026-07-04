@@ -104,3 +104,579 @@ hint = """
 "Runaway argument" = an argument that never ended = an unclosed brace.
 The opening brace of \\textbf{ has no partner. Decide where the bold
 should stop and close it there: \\textbf{greatest discoveries}."""
+
+
+# ── 03_emphasis ─────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "emphasis1"
+dir = "03_emphasis"
+mode = "fix"
+hint = """
+"File ended while scanning use of \\textbf" is a runaway argument, same
+family as text3 -- but this time styles are nested. \\textbf{ opens, and
+inside it \\textit{the timing} opens and closes cleanly on its own. The
+outer \\textbf{ is the one left dangling: pdflatex reads the nested
+\\textit all the way through and keeps waiting for \\textbf's own
+closing brace, which never comes.
+Close \\textbf{ right after "the announcement" (before the comma)."""
+
+[[exercises]]
+name = "emphasis2"
+dir = "03_emphasis"
+mode = "fix"
+hint = """
+"Too many }'s" is the opposite problem from emphasis1: not a brace left
+open, but a brace with nothing left to close. \\textbf{surprising}
+closes cleanly -- the } right after "everyone" belongs to nothing.
+Delete that extra }."""
+
+[[exercises]]
+name = "emphasis3"
+dir = "03_emphasis"
+mode = "fix"
+hint = """
+"\\begin{quote} on input line N ended by \\end{Quote}" -- environment
+names are case-sensitive strings. quote and Quote are two different
+names as far as pdflatex is concerned, so \\end{Quote} can't close a
+\\begin{quote}.
+Change \\end{Quote} to \\end{quote} so the case matches exactly."""
+
+# ── 04_lists ─────────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "lists1"
+dir = "04_lists"
+mode = "fix"
+hint = """
+"Something's wrong--perhaps a missing \\item" fires the moment itemize
+or enumerate meets content that isn't an \\item. Here the very first
+line inside \\begin{itemize} is plain text ("Remember to buy..."), not
+an \\item.
+Put \\item in front of that line, so it becomes a list entry like the
+rest."""
+
+[[exercises]]
+name = "lists2"
+dir = "04_lists"
+mode = "fix"
+hint = """
+"\\begin{itemize} on input line N ended by \\end{enumerate}" -- itemize
+(bullets) and enumerate (numbers) are different environments, and one
+cannot close the other no matter how similar the list looks.
+Change \\end{enumerate} to \\end{itemize} to match the \\begin line."""
+
+[[exercises]]
+name = "lists3"
+dir = "04_lists"
+mode = "fix"
+hint = """
+"\\begin{enumerate} on input line N ended by \\end{itemize}" -- nesting
+is a stack. An enumerate was opened inside the itemize for "Morning
+tasks", and it is still the innermost open environment when
+\\end{itemize} shows up looking for its own partner instead.
+Add \\end{enumerate} right after "Stretch", closing the inner list
+before the outer \\end{itemize} appears."""
+
+[[exercises]]
+name = "lists4"
+dir = "04_lists"
+mode = "write"
+hint = """
+Outer list = enumerate (numbers), inner list = itemize (bullets). The
+inner \\begin{itemize}...\\end{itemize} has to sit inside the second
+\\item's content, between "Prepare the demo" and the \\item that starts
+"Ship the release" -- not before the first \\item, not after the
+enumerate has already closed.
+Skeleton:
+    \\begin{enumerate}
+    \\item Update the resume
+    \\item Prepare the demo
+      \\begin{itemize}
+      \\item record a screencast
+      \\item rehearse the Q and A
+      \\end{itemize}
+    \\item Ship the release
+    \\end{enumerate}"""
+[[exercises.checks]]
+pattern = '1\. Update the resume'
+note = "the first enumerate item should read: Update the resume"
+[[exercises.checks]]
+pattern = '2\. Prepare the demo'
+note = "the second enumerate item should read: Prepare the demo"
+[[exercises.checks]]
+pattern = '3\. Ship the release'
+note = "the third enumerate item should read: Ship the release"
+[[exercises.checks]]
+pattern = '• record a screencast'
+note = "the nested itemize needs a bullet item: record a screencast"
+[[exercises.checks]]
+pattern = '• rehearse the Q and A'
+note = "the nested itemize needs a bullet item: rehearse the Q and A"
+[[exercises.checks]]
+pattern = '2\. Prepare the demo • record a screencast • rehearse the Q and A 3\. Ship the release'
+note = "the itemize must be nested inside item 2 (\"Prepare the demo\"), appearing after it and before item 3 (\"Ship the release\")"
+
+# ── 05_sections_refs ──────────────────────────────────────────────────────
+
+[[exercises]]
+name = "sections1"
+dir = "05_sections_refs"
+mode = "fix"
+hint = """
+"Runaway argument? ... ! File ended while scanning use of \\@xdblarg."
+looks scarier than emphasis1's version but it's the same bug: a
+sectioning title's argument was left open with no closing brace, this
+time reported through \\section's internal helper macro instead of
+\\section's own name.
+Close the brace right after "Introduction": \\section{Introduction}."""
+
+[[exercises]]
+name = "sections2"
+dir = "05_sections_refs"
+mode = "fix"
+hint = """
+"Undefined control sequence" followed by "l.N \\tableofcontent" names
+the exact broken command, the same way \\end{documnet} did back in
+intro2. There is no \\tableofcontent in LaTeX -- the real command has an
+s on the end.
+Fix the spelling: \\tableofcontents."""
+
+[[exercises]]
+name = "sections3"
+dir = "05_sections_refs"
+mode = "fix"
+hint = """
+"\\begin{abstract} on input line N ended by \\end{document}" means
+pdflatex reached the very end of the file with abstract still open --
+no \\end{abstract} ever showed up to close it.
+Add \\end{abstract} right after the summary paragraph, before
+\\section{Introduction} begins."""
+
+[[exercises]]
+name = "sections4"
+dir = "05_sections_refs"
+mode = "write"
+hint = """
+Put \\label{sec:methods} (or any name you like) immediately after
+\\section{Methods} -- labels capture whatever number is "current" at
+that point. Then in the Results section, write a sentence using
+\\ref{sec:methods} where the number should go:
+    See section \\ref{sec:methods}.
+pdflatex needs two passes for \\ref to resolve (the number is written to
+a .aux file on pass one, read back on pass two) -- latexlings reruns it
+automatically because it sees \\ref in the file.
+Typing the digit 1 by hand would satisfy the checks too, but it isn't
+the point of the exercise: use \\ref so the number stays correct even if
+you reorder the sections later."""
+[[exercises.checks]]
+pattern = '1 Methods'
+note = "expected a numbered heading: 1 Methods"
+[[exercises.checks]]
+pattern = '2 Results'
+note = "expected a numbered heading: 2 Results"
+[[exercises.checks]]
+pattern = 'See section 1\.'
+note = "the Results section should contain the sentence: See section 1. (use \\ref to the Methods label, not a literal digit)"
+
+[[exercises]]
+name = "sections5"
+dir = "05_sections_refs"
+mode = "write"
+hint = """
+\\tableofcontents goes first, before any \\section. It needs a second
+pdflatex pass to fill in the entries (latexlings reruns it for you
+automatically because it sees \\tableofcontents in the file). Once both
+\\section{Installation} and \\section{Configuration} exist, each title
+renders twice: once as a table-of-contents entry, once as the section
+heading itself further down the page."""
+[[exercises.checks]]
+pattern = 'Contents'
+note = "expected a table of contents (\\tableofcontents), with the word Contents as its heading"
+[[exercises.checks]]
+pattern = 'Installation.*Installation'
+note = "\"Installation\" should appear twice: once in the table of contents, once as the section heading"
+[[exercises.checks]]
+pattern = 'Configuration.*Configuration'
+note = "\"Configuration\" should appear twice: once in the table of contents, once as the section heading"
+
+# ── 06_math_basics ──────────────────────────────────────────────────────
+
+[[exercises]]
+name = "math1"
+dir = "06_math_basics"
+mode = "fix"
+hint = """
+The error is:  ! Missing $ inserted.
+One $ was opened and never closed, so TeX reads everything after it
+as math -- letters, spaces, \\pi, all of it -- until it runs out of
+paragraph. Add the missing $ right after the piece of the sentence
+that is supposed to be math."""
+
+[[exercises]]
+name = "math2"
+dir = "06_math_basics"
+mode = "fix"
+hint = """
+Still "Missing $ inserted", but this time no $ was ever opened:
+\\frac and \\alpha are math-only commands used bare in a text
+paragraph. Wrap each one in its own $ ... $."""
+
+[[exercises]]
+name = "math3"
+dir = "06_math_basics"
+mode = "fix"
+hint = """
+The error is:  ! Double superscript.
+x^2^3 stacks two carets with nothing to say which exponent is
+"outer". Group the inner exponent in braces: x^{2^3}. (Notice x^2n
+did NOT error -- it silently means x^2 followed by the letter n. Use
+x^{2n} whenever the whole exponent should travel together.)"""
+
+[[exercises]]
+name = "math4"
+dir = "06_math_basics"
+mode = "fix"
+hint = """
+The error is:  ! Paragraph ended before \\@sqrt was complete.
+\\sqrt[3{8} opens the optional-argument bracket for the root index but
+never closes it, so TeX keeps hunting for a ] past the end of the
+paragraph. Close it where it belongs: \\sqrt[3]{8}."""
+
+[[exercises]]
+name = "math5"
+dir = "06_math_basics"
+mode = "write"
+hint = """
+Typeset, inside one pair of $ ... $:
+    \\varphi = \\frac{1+\\sqrt{5}}{2} \\approx 1.618
+as part of a sentence that names it "the golden ratio". \\varphi gives
+the phi symbol, \\frac the fraction, \\sqrt the root, \\approx the
+squiggly-equals sign."""
+[[exercises.checks]]
+pattern = 'φ|ϕ|phi'
+note = 'the golden ratio symbol must render as φ (from \varphi or \phi) inside real math, not spelled out as a word'
+[[exercises.checks]]
+pattern = "≈"
+note = 'use \approx for the squiggly approximation sign before 1.618'
+[[exercises.checks]]
+pattern = '1\.618'
+note = "the decimal approximation 1.618 must appear in the rendered text"
+[[exercises.checks]]
+pattern = "golden ratio"
+note = "the sentence should name the constant as the golden ratio"
+
+# ── 07_math_display ─────────────────────────────────────────────────────
+
+[[exercises]]
+name = "display1"
+dir = "07_math_display"
+mode = "fix"
+hint = """
+The error is:  ! Display math should end with $$.
+\\[ opens DISPLAY math, a different delimiter pair from inline
+$ ... $. Close it with \\] instead of a lone $."""
+
+[[exercises]]
+name = "display2"
+dir = "07_math_display"
+mode = "fix"
+hint = """
+The error is:  ! LaTeX Error: Environment align undefined.
+align is not built into LaTeX -- it comes from the amsmath package.
+Add \\usepackage{amsmath} to the preamble, above \\begin{document}."""
+
+[[exercises]]
+name = "display3"
+dir = "07_math_display"
+mode = "fix"
+hint = """
+The error is:  ! Missing $ inserted.
+A blank line inside \\begin{equation}...\\end{equation} starts a new
+paragraph, and a paragraph break is illegal in the middle of math.
+Delete the blank line so the equation stays one unbroken stretch of
+math."""
+
+[[exercises]]
+name = "display4"
+dir = "07_math_display"
+mode = "write"
+hint = """
+Typeset the quadratic formula in a numbered display equation:
+    \\begin{equation}
+      x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}
+    \\end{equation}
+\\begin{equation} auto-numbers as "(1)" in the margin; \\pm gives the
+plus-or-minus sign."""
+[[exercises.checks]]
+pattern = 'x\s*='
+note = "the equation must solve for x -- an x = ... term should appear"
+[[exercises.checks]]
+pattern = "±"
+note = 'use \pm to render the plus-or-minus sign'
+[[exercises.checks]]
+pattern = "4ac"
+note = "the discriminant term 4ac must appear under the square root"
+[[exercises.checks]]
+pattern = "b2"
+note = "b must appear squared (b^2) inside the square root"
+[[exercises.checks]]
+pattern = '\(1\)'
+note = "the equation must come out numbered -- use equation, not equation*"
+
+[[exercises]]
+name = "display5"
+dir = "07_math_display"
+mode = "write"
+hint = """
+Typeset a three-step derivation in align* (unnumbered): the binomial
+squared, its unsimplified expansion, and the simplified result, each
+on its own line with an & right before the = sign. Separate the lines
+with LaTeX's line-break command so they stack instead of running
+together."""
+[[exercises.checks]]
+pattern = '\(x\s*\+\s*1\)2'
+note = "the first line must show the binomial squared, (x+1)^2"
+[[exercises.checks]]
+pattern = 'x2\s*\+\s*x\s*\+\s*x\s*\+\s*1'
+note = "include the unsimplified middle step x^2 + x + x + 1 before simplifying"
+[[exercises.checks]]
+pattern = 'x2\s*\+\s*2x\s*\+\s*1'
+note = "the final simplified line x^2 + 2x + 1 must appear"
+
+# ── 08_math_advanced ────────────────────────────────────────────────────
+
+[[exercises]]
+name = "advanced1"
+dir = "08_math_advanced"
+mode = "fix"
+hint = """
+The error is:  ! Missing \\right. inserted.
+\\left( was never matched by a \\right, so TeX searches all the way to
+the end of the math for a partner it never finds. Add \\right
+immediately after the fraction, with a delimiter that matches the
+opening one: \\right)."""
+
+[[exercises]]
+name = "advanced2"
+dir = "08_math_advanced"
+mode = "fix"
+hint = """
+The error is:  ! Missing delimiter (. inserted).
+\\right needs an actual delimiter right after it -- a paren, bracket,
+pipe, or an escaped brace. A bare } is not a delimiter, it is the
+character that closes a TeX group. Escape it: \\right\\}."""
+
+[[exercises]]
+name = "advanced3"
+dir = "08_math_advanced"
+mode = "fix"
+hint = """
+The error is:  ! Undefined control sequence.
+\\text{...} switches back to upright text inside math, but it is not
+core LaTeX -- it comes from amsmath (amstext). Add
+\\usepackage{amsmath} to the preamble."""
+
+# ── 09_tables ───────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "tables1"
+dir = "09_tables"
+mode = "fix"
+hint = """
+The log says:  ! Extra alignment tab has been changed to \\cr.
+Your column spec `{ll}` promises two cells per row (one `&`). Alice's
+row has three cells -- one `&` too many for pdflatex to place. Delete
+the extra cell so every row has exactly two."""
+
+[[exercises]]
+name = "tables2"
+dir = "09_tables"
+mode = "fix"
+hint = """
+The log says:  ! LaTeX Error: \\begin{tabular} on input line N ended by
+\\end{document}.
+pdflatex reached \\end{document} while the tabular environment was
+still open -- there's no \\end{tabular} anywhere above it. Add one
+right after the last row."""
+
+[[exercises]]
+name = "tables3"
+dir = "09_tables"
+mode = "fix"
+hint = """
+The log says:  ! Misplaced \\noalign.
+(\\hline expands to \\noalign{...} internally.) \\hline only makes
+sense BETWEEN two finished rows -- it can't sit inside a row, before
+that row's own `\\\\`. Move it to its own line, after the row it
+should follow."""
+
+[[exercises]]
+name = "tables4"
+dir = "09_tables"
+mode = "write"
+hint = """
+Load booktabs, then:
+    \\begin{tabular}{lll}
+    \\toprule
+    Tool & Purpose & Command \\\\
+    \\midrule
+    vim & editing & vim doc.tex \\\\
+    pdflatex & compiling & pdflatex doc.tex \\\\
+    latexmk & watching & latexmk -pdf -pvc \\\\
+    \\bottomrule
+    \\end{tabular}
+Exactly three horizontal rules -- toprule, midrule, bottomrule -- and
+none between the data rows."""
+[[exercises.checks]]
+pattern = 'Tool Purpose Command'
+note = "the header row should read: Tool | Purpose | Command"
+[[exercises.checks]]
+pattern = 'vim pdflatex latexmk'
+note = "the Tool column should list, in order: vim, pdflatex, latexmk"
+[[exercises.checks]]
+pattern = 'editing compiling watching'
+note = "the Purpose column should list, in order: editing, compiling, watching"
+[[exercises.checks]]
+pattern = 'vim doc\.tex pdflatex doc\.tex latexmk -pdf -pvc'
+note = 'the Command column should read, in order: vim doc.tex / pdflatex doc.tex / latexmk -pdf -pvc'
+
+# ── 10_figures ──────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "figures1"
+dir = "10_figures"
+mode = "fix"
+hint = """
+The log says:  ! Undefined control sequence.
+at `\\includegraphics`. That command comes from the graphicx package,
+which isn't loaded. Add `\\usepackage{graphicx}` to the preamble.
+(`example-image` ships inside TeX Live itself -- no image file of your
+own is needed for this exercise.)"""
+
+[[exercises]]
+name = "figures2"
+dir = "10_figures"
+mode = "fix"
+hint = """
+The log says:  ! LaTeX Error: \\begin{figure} on input line N ended by
+\\end{figur}.
+LaTeX quotes the misspelled name right back at you, same as intro2.
+Fix the closing tag so it reads \\end{figure}."""
+
+[[exercises]]
+name = "figures3"
+dir = "10_figures"
+mode = "fix"
+hint = """
+The log says:  ! LaTeX Error: \\caption outside float.
+\\caption records the caption text for the figure or table environment
+it lives inside -- used out in running text, there's no float to
+attach to. Remove the \\caption (and just write the sentence as plain
+text), or move the captioned material inside a
+\\begin{figure}...\\end{figure} environment."""
+
+# ── 11_macros ───────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "macros1"
+dir = "11_macros"
+mode = "fix"
+hint = """
+The log says:  ! LaTeX Error: Command \\emph already defined.
+\\emph is a kernel command LaTeX already relies on -- \\newcommand
+refuses to silently overwrite it (that's what \\renewcommand is for,
+and even that would be risky for a command this fundamental). Rename
+yours to something unclaimed, like \\myemph, and use that name at
+every call site."""
+
+[[exercises]]
+name = "macros2"
+dir = "11_macros"
+mode = "fix"
+hint = """
+The log says:  ! Illegal parameter number in definition of \\pair.
+\\newcommand{\\pair}[2]{...} declares exactly two parameters, #1 and
+#2. The body reaches for #3, which doesn't exist. Change #3 back to
+#2 so the body matches the declared [2]."""
+
+[[exercises]]
+name = "macros3"
+dir = "11_macros"
+mode = "fix"
+hint = """
+The log says:  ! Undefined control sequence.
+with `\\R ->\\mathbb` in the trace -- notice the failure is reported at
+the line where \\R is USED, not at the \\newcommand line where it's
+defined. \\newcommand just stores the body; it never checks that
+\\mathbb exists. Add \\usepackage{amssymb} (or amsfonts), which is
+where \\mathbb actually comes from."""
+
+[[exercises]]
+name = "macros4"
+dir = "11_macros"
+mode = "write"
+hint = """
+Define the macro once:
+    \\newcommand{\\keyword}[1]{\\textbf{#1}}
+then call \\keyword{...} at least three times in your paragraph,
+wrapping: reproducible, incremental, caching. The checker only looks
+for those three words in the rendered text -- it can't see whether you
+used one macro or three separate \\textbf calls, but the whole point
+of this exercise is writing the macro, not just passing the check."""
+[[exercises.checks]]
+pattern = 'reproducible'
+note = 'use \keyword{...} to mark "reproducible" somewhere in your paragraph'
+[[exercises.checks]]
+pattern = 'incremental'
+note = 'use \keyword{...} to mark "incremental" somewhere in your paragraph'
+[[exercises.checks]]
+pattern = 'caching'
+note = 'use \keyword{...} to mark "caching" somewhere in your paragraph'
+
+# ── 12_errors ───────────────────────────────────────────────────────────
+
+[[exercises]]
+name = "errors1"
+dir = "12_errors"
+mode = "fix"
+hint = """
+The log says:  ! Undefined control sequence.
+with `\\textbol` underlined at the point of failure. LaTeX only knows
+commands that were actually defined somewhere -- \\textbol isn't one
+of them. You meant \\textbf."""
+
+[[exercises]]
+name = "errors2"
+dir = "12_errors"
+mode = "fix"
+hint = """
+The log says:  ! Misplaced alignment tab character &.
+`&` separates columns inside tabular/align -- outside those
+environments it has no job. Escape it: \\&."""
+
+[[exercises]]
+name = "errors3"
+dir = "12_errors"
+mode = "fix"
+hint = """
+The log says:  ! Emergency stop.
+followed by `*** (job aborted, no legal \\end found)`. pdflatex ran off
+the end of the file still inside \\begin{document}, with no
+\\end{document} in sight. Add the closing \\end{document}."""
+
+[[exercises]]
+name = "errors4"
+dir = "12_errors"
+mode = "fix"
+hint = """
+The log points near the end of the file with:
+  ! File ended while scanning use of \\textbf .
+...but that's not where the mistake is. Scroll UP: a bare % inside the
+\\textbf{...} argument comments out everything after it on that line --
+including the } that was supposed to close the argument. Once the
+closing brace is gone, \\textbf keeps eating every token after it,
+looking for a brace that never comes, all the way to the end of the
+file. Delete the % (or escape it as \\% if you truly meant a literal
+percent sign) and make sure a real } closes the argument where you
+meant it to."""

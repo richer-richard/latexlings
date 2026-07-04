@@ -1,0 +1,24 @@
+% macros1.tex
+%
+% \newcommand refuses to redefine a name that's already taken -- and
+% \emph is a kernel command core LaTeX itself relies on. Try to claim
+% it and LaTeX names the collision:
+%   ! LaTeX Error: Command \emph already defined.
+%
+% Don't stomp on a command LaTeX (or a loaded package) already
+% provides. Rename yours to something unclaimed, e.g. \myemph, and use
+% that name everywhere below instead.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint macros1
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\newcommand{\emph}[1]{\textbf{#1}}
+
+\begin{document}
+
+This sentence uses \emph{a custom emphasis command}.
+
+\end{document}

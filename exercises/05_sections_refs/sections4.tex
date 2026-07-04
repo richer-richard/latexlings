@@ -1,0 +1,39 @@
+% sections4.tex -- writing exercise
+%
+% This skeleton compiles already. Your job is to add two sections and a
+% cross-reference between them.
+%
+% Build:
+%   1. \section{Methods}, with a \label right after the title.
+%   2. \section{Results}, whose body is one sentence: "See section N."
+%      -- where N must come from \ref{...}, not a digit you type yourself.
+%      Use the label from step 1 with \ref so LaTeX fills in the number.
+%
+% Two things to remember:
+%   - \label only works right after (or inside) the thing it names --
+%     put it immediately after \section{Methods}.
+%   - \ref needs two pdflatex passes to resolve (the number is written to
+%     a .aux file on pass one, read back on pass two). latexlings runs
+%     that second pass for you automatically whenever it sees \ref in
+%     the file.
+%
+% Note: the checks below only look at the rendered PDF text, so they
+% can't tell a real \ref{...} apart from a hardcoded "1" -- but typing
+% the digit yourself defeats the entire point of this exercise. Use
+% \ref.
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\section{Methods}
+
+Replace this with a description of the methods.
+
+\section{Results}
+
+Replace this with a sentence that references the Methods section number.
+
+\end{document}

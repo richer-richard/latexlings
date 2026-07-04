@@ -1,0 +1,29 @@
+% emphasis3.tex
+%
+% Environment names are exact strings, and LaTeX treats them
+% case-sensitively: quote and Quote are two completely different names
+% to it, even though they look almost the same to you. Every \begin{name}
+% must be closed by \end{name} with identical spelling and case.
+%
+% Below, \begin{quote} (lowercase) is closed by \end{Quote} (capital Q).
+% pdflatex catches the mismatch right where the wrong \end shows up:
+% "\begin{quote} on input line N ended by \end{Quote}".
+%
+% Fix the capitalization in the \end line so it matches \begin{quote}.
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+Reviewers praised the writing:
+
+\begin{quote}
+\itshape
+The prose here is understated but effective.
+\end{Quote}
+
+That much everyone agreed on.
+
+\end{document}

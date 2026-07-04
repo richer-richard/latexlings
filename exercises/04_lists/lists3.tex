@@ -1,0 +1,30 @@
+% lists3.tex
+%
+% Lists nest: an itemize can contain an enumerate as one of its items.
+% But nesting is a stack -- the innermost environment you opened must be
+% the innermost one you close. Open enumerate inside itemize, and the
+% very next \end you write has to be \end{enumerate}.
+%
+% Below, the inner \begin{enumerate} is never closed before the outer
+% \end{itemize} shows up. pdflatex reports the mismatch against whatever
+% is still open: "\begin{enumerate} on input line N ended by
+% \end{itemize}".
+%
+% Add the missing \end{enumerate} right after the inner items, before
+% \end{itemize}.
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\begin{itemize}
+\item Morning tasks
+  \begin{enumerate}
+  \item Wake up
+  \item Stretch
+\item Evening tasks
+\end{itemize}
+
+\end{document}

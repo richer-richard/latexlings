@@ -1,0 +1,42 @@
+% tables4.tex -- typeset a table with booktabs
+%
+% booktabs replaces the clunky \hline with three purpose-built rules:
+%   \toprule     above the header row
+%   \midrule     between the header row and the body
+%   \bottomrule  below the last row
+% (never \hline in a booktabs table, and never a rule between two body
+% rows -- a booktabs table has exactly those three horizontal lines.)
+%
+% Typeset this 3-column table (Tool / Purpose / Command):
+%
+%   Tool       Purpose     Command
+%   vim        editing     vim doc.tex
+%   pdflatex   compiling   pdflatex doc.tex
+%   latexmk    watching    latexmk -pdf -pvc
+%
+% \usepackage{booktabs} is already in the preamble below. Build the
+% table with \begin{tabular}{lll} ... \end{tabular}: a \toprule, the
+% header row, \midrule, the three data rows in order, \bottomrule.
+%
+% latexlings checks the rendered PDF text for each row's words in
+% order -- spacing and font don't matter to the checker, only the
+% words do.
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint tables4
+
+% I AM NOT DONE
+
+\documentclass{article}
+\usepackage{booktabs}
+
+\begin{document}
+
+\begin{tabular}{lll}
+\toprule
+A & B & C \\
+\midrule
+x & y & z \\
+\bottomrule
+\end{tabular}
+
+\end{document}

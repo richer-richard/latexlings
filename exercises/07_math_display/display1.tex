@@ -1,0 +1,21 @@
+% display1.tex
+%
+% Inline math opens and closes with $ ... $. Display math is a
+% different pair of delimiters entirely: \[ ... \]. Mixing them --
+% opening with \[ and trying to close with a lone $ -- leaves TeX
+% waiting for the delimiter it actually expects: "Display math should
+% end with $$."
+%
+% Close the displayed equation below with \] instead of $.
+
+% I AM NOT DONE
+
+\documentclass{article}
+\begin{document}
+
+The following identity holds for every pair of real numbers:
+\[
+  (a+b)^2 = a^2 + 2ab + b^2
+$
+
+\end{document}

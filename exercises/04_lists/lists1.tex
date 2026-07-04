@@ -1,0 +1,28 @@
+% lists1.tex
+%
+% itemize and enumerate are list environments: everything inside them has
+% to be an \item. LaTeX's list machinery doesn't know how to start a
+% paragraph of its own -- the first thing after \begin{itemize} must be
+% \item, not plain text.
+%
+% The line "Remember to buy..." below sits before the first \item. pdflatex
+% refuses it with the classic list error: "Something's wrong--perhaps a
+% missing \item".
+%
+% Fix it by turning that stray line into its own \item, or moving it above
+% \begin{itemize} as ordinary text.
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\begin{itemize}
+Remember to buy milk, eggs, and bread.
+\item Milk
+\item Eggs
+\item Bread
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,19 @@
+% math2.tex
+%
+% math1 forgot to CLOSE a dollar sign. This one never OPENS one at all:
+% \frac and \alpha are math-only commands, and typing them straight
+% into a paragraph is exactly as illegal as leaving math mode without
+% a $ nearby. LaTeX gives the identical complaint either way: "Missing
+% $ inserted."
+%
+% Wrap each math command below in its own pair of $ ... $.
+
+% I AM NOT DONE
+
+\documentclass{article}
+\begin{document}
+
+Splitting a bill in half means computing \frac{1}{2} of the total, and
+\alpha particles are just helium nuclei in disguise.
+
+\end{document}

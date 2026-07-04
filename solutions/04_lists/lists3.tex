@@ -1,0 +1,17 @@
+% lists3 solution: close the inner enumerate before returning to the
+% outer itemize, so the innermost \begin matches the innermost \end.
+
+\documentclass{article}
+
+\begin{document}
+
+\begin{itemize}
+\item Morning tasks
+  \begin{enumerate}
+  \item Wake up
+  \item Stretch
+  \end{enumerate}
+\item Evening tasks
+\end{itemize}
+
+\end{document}

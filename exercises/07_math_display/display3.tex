@@ -1,0 +1,23 @@
+% display3.tex
+%
+% amsmath is loaded now, so environments are not the problem here --
+% blank lines inside them are. A blank line means "start a new
+% paragraph," and a paragraph break is not legal in the middle of
+% math. TeX tries to recover by closing math mode for you, and fails
+% the same way math1 did: "Missing $ inserted."
+%
+% Delete the blank line inside the equation environment below.
+
+% I AM NOT DONE
+
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+
+The area enclosed by a circle of radius $r$ is:
+\begin{equation}
+  A = \pi r^2
+
+\end{equation}
+
+\end{document}

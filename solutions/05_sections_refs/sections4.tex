@@ -1,0 +1,17 @@
+% sections4 solution: \label right after \section{Methods}, then
+% \ref{sec:methods} in the Results section resolves to its number.
+
+\documentclass{article}
+
+\begin{document}
+
+\section{Methods}
+\label{sec:methods}
+
+We describe our experimental methods here.
+
+\section{Results}
+
+See section \ref{sec:methods}.
+
+\end{document}

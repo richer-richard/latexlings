@@ -1,0 +1,23 @@
+% figures1.tex
+%
+% \includegraphics is not part of core LaTeX -- it's defined by the
+% graphicx package. Without \usepackage{graphicx} in the preamble, the
+% name means nothing to pdflatex:
+%   ! Undefined control sequence.
+%   l.N \includegraphics
+%
+% Add \usepackage{graphicx} to the preamble. (example-image is a small
+% placeholder picture that ships inside every TeX Live install -- no
+% image file of your own is needed to use it here.)
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint figures1
+
+% I AM NOT DONE
+
+\documentclass{article}
+
+\begin{document}
+
+\includegraphics{example-image}
+
+\end{document}

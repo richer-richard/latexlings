@@ -1,0 +1,25 @@
+% figures2.tex
+%
+% \begin{figure} and \end{figure} must name the SAME environment.
+% \end{figur} is missing the final "e" -- pdflatex sees an unmatched
+% close and reports the mismatch by naming both sides:
+%   ! LaTeX Error: \begin{figure} on input line N ended by \end{figur}.
+%
+% Fix the closing tag's spelling so it reads \end{figure}.
+% (example-image ships inside TeX Live, so \includegraphics needs no
+% file of your own for this exercise.)
+%
+% Stuck? Press h in the watch window, or run:  latexlings hint figures2
+
+% I AM NOT DONE
+
+\documentclass{article}
+\usepackage{graphicx}
+
+\begin{document}
+
+\begin{figure}
+\includegraphics{example-image}
+\end{figur}
+
+\end{document}
