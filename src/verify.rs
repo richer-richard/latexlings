@@ -122,10 +122,7 @@ fn rendered_text(root: &Path, ex: &Exercise) -> Result<String, Status> {
 }
 
 pub fn verify(root: &Path, ex: &Exercise) -> Status {
-    match run_pdflatex(root, ex) {
-        Err(s) => return s,
-        Ok(_) => {}
-    }
+    if let Err(s) = run_pdflatex(root, ex) { return s }
     if needs_second_pass(root, ex) {
         if let Err(s) = run_pdflatex(root, ex) {
             return s;

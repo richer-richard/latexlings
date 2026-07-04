@@ -1,15 +1,15 @@
 //! `latexlings dev-check` — the exercise-author harness (like `rustlings
 //! dev check`). Asserts, for every exercise in info.toml:
 //!
-//!   1. the exercise file and its solution exist, the hint is non-empty
-//!   2. the shipped exercise contains the I-AM-NOT-DONE marker;
-//!      the solution does not
-//!   3. shipped state behaves as declared:
-//!        fix   -> fails to compile (unless compiles_as_shipped)
-//!        write -> compiles, and its checks do NOT all pass yet
-//!                 (otherwise the exercise would be solved on arrival)
-//!   4. the solution, dropped into a scratch root, verifies as Done
-//!      (compiles + passes every check)
+//! 1. the exercise file and its solution exist, the hint is non-empty
+//! 2. the shipped exercise contains the I-AM-NOT-DONE marker;
+//!    the solution does not
+//! 3. shipped state behaves as declared:
+//!    fix   -> fails to compile (unless compiles_as_shipped)
+//!    write -> compiles, and its checks do NOT all pass yet
+//!    (otherwise the exercise would be solved on arrival)
+//! 4. the solution, dropped into a scratch root, verifies as Done
+//!    (compiles + passes every check)
 
 use crate::info::{Exercise, Mode, MARKER};
 use crate::verify::{verify, Status};

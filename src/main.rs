@@ -6,7 +6,7 @@ mod verify;
 use anyhow::{bail, Result};
 use info::{find_root, load_info, Exercise};
 use std::env;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 const USAGE: &str = "\
@@ -34,7 +34,7 @@ fn find_exercise<'a>(exercises: &'a [Exercise], name: &str) -> Result<&'a Exerci
     })
 }
 
-fn cmd_run(root: &PathBuf, ex: &Exercise) -> Result<bool> {
+fn cmd_run(root: &Path, ex: &Exercise) -> Result<bool> {
     println!("── {} [{}]", ex.rel_path(), ex.mode.label());
     let status = verify::verify(root, ex);
     match &status {
@@ -57,7 +57,7 @@ fn cmd_run(root: &PathBuf, ex: &Exercise) -> Result<bool> {
     Ok(status.is_done())
 }
 
-fn cmd_verify(root: &PathBuf, exercises: &[Exercise]) -> Result<bool> {
+fn cmd_verify(root: &Path, exercises: &[Exercise]) -> Result<bool> {
     let mut all_ok = true;
     let total = exercises.len();
     for (i, ex) in exercises.iter().enumerate() {
@@ -75,7 +75,7 @@ fn cmd_verify(root: &PathBuf, exercises: &[Exercise]) -> Result<bool> {
     Ok(all_ok)
 }
 
-fn cmd_list(root: &PathBuf, exercises: &[Exercise]) {
+fn cmd_list(root: &Path, exercises: &[Exercise]) {
     let done = info::load_done(root);
     for (i, ex) in exercises.iter().enumerate() {
         println!(
