@@ -66,43 +66,51 @@ pub fn spawn(jobs: Vec<Job>, verifier: Verifier) -> Receiver<JobResult> {
     rx
 }
 
-/// Blocking convenience wrapper: run all jobs and collect every result.
+/// Spawn `jobs` and invoke `on_result` for each one as it completes, in
+/// whatever order workers finish (not necessarily input order) — lets a
+/// caller stream live progress instead of waiting for the whole sweep.
 ///
 /// If a worker thread panics mid-verification, its job's sender is dropped
 /// during unwind without ever sending a `JobResult`, which would otherwise
-/// close the channel one message early and silently return fewer than `n`
-/// results with no indication which job vanished. To keep "one result per
-/// input job" a hard guarantee for every caller, any index missing once the
-/// channel closes is filled in with an explicit `Status::ToolMissing`
-/// failure instead of being dropped.
-pub fn run_blocking(jobs: Vec<Job>, verifier: Verifier) -> Vec<JobResult> {
+/// close the channel one message early and silently skip that job. To keep
+/// "one callback per input job" a hard guarantee, any index missing once
+/// the channel closes gets a synthesized `Status::ToolMissing` callback
+/// instead of being dropped.
+pub fn run_streaming(jobs: Vec<Job>, verifier: Verifier, mut on_result: impl FnMut(JobResult)) {
     let n = jobs.len();
     if n == 0 {
-        return Vec::new();
+        return;
     }
     let expected_indices: Vec<usize> = jobs.iter().map(|j| j.index).collect();
     let rx = spawn(jobs, verifier);
-    let mut results = Vec::with_capacity(n);
+    let mut received = std::collections::HashSet::with_capacity(n);
     for _ in 0..n {
         match rx.recv() {
-            Ok(r) => results.push(r),
+            Ok(r) => {
+                received.insert(r.index);
+                on_result(r);
+            }
             Err(_) => break,
         }
     }
-    if results.len() < n {
-        let received: std::collections::HashSet<usize> = results.iter().map(|r| r.index).collect();
-        for index in expected_indices {
-            if !received.contains(&index) {
-                results.push(JobResult {
-                    index,
-                    status: Status::ToolMissing(
-                        "internal error: a worker thread panicked while verifying this exercise — result missing"
-                            .into(),
-                    ),
-                });
-            }
+    for index in expected_indices {
+        if !received.contains(&index) {
+            on_result(JobResult {
+                index,
+                status: Status::ToolMissing(
+                    "internal error: a worker thread panicked while verifying this exercise — result missing"
+                        .into(),
+                ),
+            });
         }
     }
+}
+
+/// Blocking convenience wrapper: run all jobs and collect every result.
+/// See `run_streaming` for the panic-safety guarantee this relies on.
+pub fn run_blocking(jobs: Vec<Job>, verifier: Verifier) -> Vec<JobResult> {
+    let mut results = Vec::new();
+    run_streaming(jobs, verifier, |r| results.push(r));
     results
 }
 
