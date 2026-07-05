@@ -208,13 +208,13 @@ note = "the second enumerate item should read: Prepare the demo"
 pattern = '3\. Ship the release'
 note = "the third enumerate item should read: Ship the release"
 [[exercises.checks]]
-pattern = '• record a screencast'
-note = "the nested itemize needs a bullet item: record a screencast"
+pattern = 'record a screencast'
+note = "the nested itemize needs an item: record a screencast"
 [[exercises.checks]]
-pattern = '• rehearse the Q and A'
-note = "the nested itemize needs a bullet item: rehearse the Q and A"
+pattern = 'rehearse the Q and A'
+note = "the nested itemize needs an item: rehearse the Q and A"
 [[exercises.checks]]
-pattern = '2\. Prepare the demo • record a screencast • rehearse the Q and A 3\. Ship the release'
+pattern = '2\. Prepare the demo.*record a screencast.*rehearse the Q and A.*3\. Ship the release'
 note = "the itemize must be nested inside item 2 (\"Prepare the demo\"), appearing after it and before item 3 (\"Ship the release\")"
 
 # ── 05_sections_refs ──────────────────────────────────────────────────────

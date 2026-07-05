@@ -1,7 +1,8 @@
 //! The watch/list TUI, in the spirit of rustlings' watch mode.
 
+use crate::check_all;
 use crate::info::{self, Exercise, MARKER};
-use crate::verify::{verify, Status};
+use crate::verify::{self, verify_respecting_strict_chktex, LintResult, Status};
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -9,7 +10,6 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Cell, Gauge, Paragraph, Row, Table, TableState, Wrap};
 use ratatui::{DefaultTerminal, Frame};
-use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
@@ -19,14 +19,23 @@ const ACCENT: Color = Color::Green;
 enum UiMode {
     Watch,
     List,
+    CheckAll,
+}
+
+#[derive(PartialEq, Clone, Copy)]
+enum ListFilter {
+    None,
+    Done,
+    Pending,
 }
 
 pub struct App {
     root: PathBuf,
     exercises: Vec<Exercise>,
-    done: BTreeSet<String>,
+    done: info::DoneState,
     current: usize,
     status: Option<Status>,
+    lints: Option<LintResult>,
     show_hint: bool,
     scroll: u16,
     mode: UiMode,
@@ -34,10 +43,20 @@ pub struct App {
     last_mtime: Option<SystemTime>,
     dirty: bool,
     flash: Option<String>,
+    check_results: Vec<Option<Status>>,
+    check_rx: Option<std::sync::mpsc::Receiver<crate::check_all::JobResult>>,
+    list_filter: ListFilter,
+    search: Option<String>,
+    editor_config: crate::editor::EditorConfig,
+    last_opened: Option<usize>,
 }
 
 impl App {
-    pub fn new(root: PathBuf, exercises: Vec<Exercise>) -> Self {
+    pub fn new(
+        root: PathBuf,
+        exercises: Vec<Exercise>,
+        editor_config: crate::editor::EditorConfig,
+    ) -> Self {
         let done = info::load_done(&root);
         let current = exercises
             .iter()
@@ -51,6 +70,7 @@ impl App {
             done,
             current,
             status: None,
+            lints: None,
             show_hint: false,
             scroll: 0,
             mode: UiMode::Watch,
@@ -58,6 +78,12 @@ impl App {
             last_mtime: None,
             dirty: true,
             flash: None,
+            check_results: Vec::new(),
+            check_rx: None,
+            list_filter: ListFilter::None,
+            search: None,
+            editor_config,
+            last_opened: None,
         }
     }
 
@@ -90,16 +116,34 @@ impl App {
             });
         self.current = next.unwrap_or(self.exercises.len());
         self.status = None;
+        self.lints = None;
         self.show_hint = false;
         self.scroll = 0;
         self.last_mtime = None;
         self.dirty = !self.all_done();
     }
+
+    fn visible_rows(&self) -> Vec<usize> {
+        self.exercises
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| match self.list_filter {
+                ListFilter::None => true,
+                ListFilter::Done => self.done.contains(&e.name),
+                ListFilter::Pending => !self.done.contains(&e.name),
+            })
+            .map(|(i, _)| i)
+            .collect()
+    }
 }
 
-pub fn run_watch(root: PathBuf, exercises: Vec<Exercise>) -> Result<()> {
+pub fn run_watch(
+    root: PathBuf,
+    exercises: Vec<Exercise>,
+    editor_config: crate::editor::EditorConfig,
+) -> Result<()> {
     let mut terminal = ratatui::init();
-    let app = App::new(root, exercises);
+    let app = App::new(root, exercises, editor_config);
     let result = event_loop(&mut terminal, app);
     ratatui::restore();
     result
@@ -111,16 +155,59 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
             app.flash = Some("compiling…".into());
             terminal.draw(|f| draw(f, &mut app))?;
             let ex = app.cur().unwrap().clone();
-            let status = verify(&app.root, &ex);
-            if status.is_done() && app.done.insert(ex.name.clone()) {
-                info::save_done(&app.root, &app.done)?;
+            if app.last_opened != Some(app.current) {
+                crate::editor::open(&app.editor_config, &ex.path(&app.root));
+                app.last_opened = Some(app.current);
+            }
+            // Captured *before* verifying (a slow pdflatex compile), not
+            // after: reading it afterward could pick up a newer edit made
+            // while the compile was running, stamping the cache against
+            // content that was never actually verified.
+            let mtime_at_verify_start = app.mtime().map(info::truncate_to_secs);
+            let (status, lints) = verify::verify_with_lints(&app.root, &ex);
+            if status.is_done() {
+                let previous_mtime = app.done.mtime(&ex.name);
+                let is_new = app.done.insert(ex.name.clone(), mtime_at_verify_start);
+                if is_new || previous_mtime != mtime_at_verify_start {
+                    info::save_done(&app.root, &app.done)?;
+                }
             }
             app.status = Some(status);
+            app.lints = lints;
             app.flash = None;
             app.last_mtime = app.mtime();
             app.dirty = false;
         }
         terminal.draw(|f| draw(f, &mut app))?;
+
+        if let Some(rx) = &app.check_rx {
+            let mut disconnected = false;
+            loop {
+                match rx.try_recv() {
+                    Ok(result) => app.check_results[result.index] = Some(result.status),
+                    Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                        disconnected = true;
+                        break;
+                    }
+                }
+            }
+            if disconnected {
+                app.check_rx = None;
+                // A worker panic drops its sender without ever delivering a
+                // result for that job — fill in any slot still empty once
+                // the channel closes, so the sweep can't get stuck showing
+                // "complete" while a cell sits on the pending placeholder
+                // forever with no result ever having arrived for it.
+                for slot in app.check_results.iter_mut() {
+                    if slot.is_none() {
+                        *slot = Some(Status::ToolMissing(
+                            "internal error: a worker thread panicked while verifying this exercise — result missing".into(),
+                        ));
+                    }
+                }
+            }
+        }
 
         if event::poll(Duration::from_millis(250))? {
             match event::read()? {
@@ -141,15 +228,57 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                             KeyCode::Char('h') => app.show_hint = !app.show_hint,
                             KeyCode::Char('r') => app.dirty = true,
                             KeyCode::Char('l') => {
-                                app.list_state.select(Some(
-                                    app.current.min(app.exercises.len().saturating_sub(1)),
-                                ));
+                                // Seed the selection with app.current's
+                                // position WITHIN the filtered rows, not a
+                                // raw full-list index — list_filter persists
+                                // across mode switches, so a stale full-list
+                                // index could be out of range or point at
+                                // the wrong row in a filtered table.
+                                let rows = app.visible_rows();
+                                let seed = rows.iter().position(|&i| i == app.current).unwrap_or(0);
+                                app.list_state
+                                    .select(Some(seed.min(rows.len().saturating_sub(1))));
                                 app.mode = UiMode::List;
+                            }
+                            KeyCode::Char('c') => {
+                                app.check_results = vec![None; app.exercises.len()];
+                                let (jobs, cached) =
+                                    check_all::plan_sweep(&app.root, &app.exercises, &app.done);
+                                for (i, status) in cached {
+                                    app.check_results[i] = Some(status);
+                                }
+                                let verifier: check_all::Verifier =
+                                    std::sync::Arc::new(verify_respecting_strict_chktex);
+                                app.check_rx = Some(check_all::spawn(jobs, verifier));
+                                app.mode = UiMode::CheckAll;
                             }
                             KeyCode::Up => app.scroll = app.scroll.saturating_sub(1),
                             KeyCode::Down => app.scroll = app.scroll.saturating_add(1),
                             KeyCode::PageUp => app.scroll = app.scroll.saturating_sub(10),
                             KeyCode::PageDown => app.scroll = app.scroll.saturating_add(10),
+                            _ => {}
+                        },
+                        UiMode::List if app.search.is_some() => match key.code {
+                            KeyCode::Esc | KeyCode::Enter => app.search = None,
+                            KeyCode::Backspace => {
+                                if let Some(q) = &mut app.search {
+                                    q.pop();
+                                }
+                            }
+                            KeyCode::Char(c) => {
+                                if let Some(q) = &mut app.search {
+                                    q.push(c);
+                                }
+                                let rows = app.visible_rows();
+                                if let Some(q) = &app.search {
+                                    if let Some(pos) = rows
+                                        .iter()
+                                        .position(|&i| app.exercises[i].name.contains(q.as_str()))
+                                    {
+                                        app.list_state.select(Some(pos));
+                                    }
+                                }
+                            }
                             _ => {}
                         },
                         UiMode::List => match key.code {
@@ -161,14 +290,26 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                 app.list_state.select(Some(i.saturating_sub(1)));
                             }
                             KeyCode::Down | KeyCode::Char('j') => {
+                                let rows = app.visible_rows();
                                 let i = app.list_state.selected().unwrap_or(0);
                                 app.list_state
-                                    .select(Some((i + 1).min(app.exercises.len() - 1)));
+                                    .select(Some((i + 1).min(rows.len().saturating_sub(1))));
                             }
                             KeyCode::Enter => {
-                                if let Some(i) = app.list_state.selected() {
+                                let rows = app.visible_rows();
+                                if let Some(i) =
+                                    app.list_state.selected().and_then(|i| rows.get(i)).copied()
+                                {
                                     app.current = i;
+                                    if app.last_opened != Some(app.current) {
+                                        crate::editor::open(
+                                            &app.editor_config,
+                                            &app.exercises[i].path(&app.root),
+                                        );
+                                        app.last_opened = Some(app.current);
+                                    }
                                     app.status = None;
+                                    app.lints = None;
                                     app.scroll = 0;
                                     app.show_hint = false;
                                     app.dirty = true;
@@ -176,7 +317,10 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                 }
                             }
                             KeyCode::Char('r') => {
-                                if let Some(i) = app.list_state.selected() {
+                                let rows = app.visible_rows();
+                                if let Some(i) =
+                                    app.list_state.selected().and_then(|i| rows.get(i)).copied()
+                                {
                                     let ex = app.exercises[i].clone();
                                     info::reset(&app.root, &ex)?;
                                     app.done.remove(&ex.name);
@@ -185,6 +329,61 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                         app.dirty = true;
                                     }
                                 }
+                            }
+                            KeyCode::Char('d') => {
+                                app.list_filter = if app.list_filter == ListFilter::Done {
+                                    ListFilter::None
+                                } else {
+                                    ListFilter::Done
+                                };
+                                app.list_state.select(Some(0));
+                            }
+                            KeyCode::Char('p') => {
+                                app.list_filter = if app.list_filter == ListFilter::Pending {
+                                    ListFilter::None
+                                } else {
+                                    ListFilter::Pending
+                                };
+                                app.list_state.select(Some(0));
+                            }
+                            KeyCode::Char('/') => {
+                                app.search = Some(String::new());
+                            }
+                            _ => {}
+                        },
+                        UiMode::CheckAll => match key.code {
+                            KeyCode::Char('q') | KeyCode::Esc | KeyCode::Enter
+                                if app.check_rx.is_none() =>
+                            {
+                                // Sweep finished — reconcile and return to Watch.
+                                // Both directions matter: newly-passing
+                                // exercises get inserted, and a previously-Done
+                                // exercise that regressed to failing has its
+                                // stale entry removed rather than left behind.
+                                for (i, status) in app.check_results.iter().enumerate() {
+                                    if let Some(status) = status {
+                                        let ex = &app.exercises[i];
+                                        if status.is_done() {
+                                            let mtime = std::fs::metadata(ex.path(&app.root))
+                                                .and_then(|m| m.modified())
+                                                .ok()
+                                                .map(info::truncate_to_secs);
+                                            app.done.insert(ex.name.clone(), mtime);
+                                        } else {
+                                            app.done.remove(&ex.name);
+                                        }
+                                    }
+                                }
+                                info::save_done(&app.root, &app.done)?;
+                                app.current = app
+                                    .exercises
+                                    .iter()
+                                    .position(|e| !app.done.contains(&e.name))
+                                    .unwrap_or(app.exercises.len());
+                                app.status = None;
+                                app.lints = None;
+                                app.dirty = !app.all_done();
+                                app.mode = UiMode::Watch;
                             }
                             _ => {}
                         },
@@ -204,13 +403,17 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
 }
 
 fn draw(frame: &mut Frame, app: &mut App) {
-    let [header, main, footer] =
-        Layout::vertical([Constraint::Length(3), Constraint::Min(4), Constraint::Length(1)])
-            .areas(frame.area());
+    let [header, main, footer] = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(4),
+        Constraint::Length(1),
+    ])
+    .areas(frame.area());
     draw_progress(frame, header, app);
     match app.mode {
         UiMode::Watch => draw_watch(frame, main, app),
         UiMode::List => draw_list(frame, main, app),
+        UiMode::CheckAll => draw_check_all(frame, main, app),
     }
     draw_footer(frame, footer, app);
 }
@@ -218,7 +421,11 @@ fn draw(frame: &mut Frame, app: &mut App) {
 fn draw_progress(frame: &mut Frame, area: Rect, app: &App) {
     let done = app.done.len();
     let total = app.exercises.len();
-    let ratio = if total == 0 { 0.0 } else { done as f64 / total as f64 };
+    let ratio = if total == 0 {
+        0.0
+    } else {
+        done as f64 / total as f64
+    };
     let gauge = Gauge::default()
         .block(
             Block::default()
@@ -298,7 +505,9 @@ fn draw_watch(frame: &mut Frame, area: Rect, app: &App) {
         (None, Some(Status::ChecksFail(notes, excerpt))) => {
             lines.push(Line::from(Span::styled(
                 "  ✗ compiles, but the rendered output isn't right yet:",
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
             )));
             lines.push(Line::from(""));
             for n in notes {
@@ -343,12 +552,26 @@ fn draw_watch(frame: &mut Frame, area: Rect, app: &App) {
             )));
         }
     }
+    if let Some(lints) = &app.lints {
+        if !lints.notes.is_empty() {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "  ── chktex notes ────────────────────────",
+                Style::default().fg(Color::Cyan),
+            )));
+            for n in &lints.notes {
+                lines.push(Line::from(Span::styled(
+                    format!("  • {n}"),
+                    Style::default().fg(Color::Cyan),
+                )));
+            }
+        }
+    }
     let para = Paragraph::new(Text::from(lines))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(Span::styled(title, Style::default().add_modifier(Modifier::BOLD))),
-        )
+        .block(Block::default().borders(Borders::ALL).title(Span::styled(
+            title,
+            Style::default().add_modifier(Modifier::BOLD),
+        )))
         .wrap(Wrap { trim: false })
         .scroll((app.scroll, 0));
     frame.render_widget(para, area);
@@ -356,10 +579,10 @@ fn draw_watch(frame: &mut Frame, area: Rect, app: &App) {
 
 fn draw_list(frame: &mut Frame, area: Rect, app: &mut App) {
     let rows: Vec<Row> = app
-        .exercises
-        .iter()
-        .enumerate()
-        .map(|(i, e)| {
+        .visible_rows()
+        .into_iter()
+        .map(|i| {
+            let e = &app.exercises[i];
             let done = app.done.contains(&e.name);
             let icon = if done {
                 Span::styled("✓", Style::default().fg(ACCENT))
@@ -396,10 +619,41 @@ fn draw_list(frame: &mut Frame, area: Rect, app: &mut App) {
     frame.render_stateful_widget(table, area, &mut app.list_state);
 }
 
+fn draw_check_all(frame: &mut Frame, area: Rect, app: &App) {
+    let done_now = app
+        .check_results
+        .iter()
+        .filter(|s| matches!(s, Some(st) if st.is_done()))
+        .count();
+    let checked = app.check_results.iter().filter(|s| s.is_some()).count();
+    let total = app.exercises.len();
+    let title = if app.check_rx.is_some() {
+        format!(" checking all — {checked}/{total} ")
+    } else {
+        format!(" check all complete — {done_now}/{total} done (press enter) ")
+    };
+    let mut spans: Vec<Span> = Vec::new();
+    for status in &app.check_results {
+        let (ch, color) = match status {
+            None => ('░', Color::DarkGray),
+            Some(s) if s.is_done() => ('█', ACCENT),
+            Some(_) => ('█', Color::Red),
+        };
+        spans.push(Span::styled(ch.to_string(), Style::default().fg(color)));
+    }
+    let para = Paragraph::new(Line::from(spans))
+        .block(Block::default().borders(Borders::ALL).title(title))
+        .wrap(Wrap { trim: false });
+    frame.render_widget(para, area);
+}
+
 fn draw_footer(frame: &mut Frame, area: Rect, app: &App) {
     let keys = match app.mode {
-        UiMode::Watch => "  n:next  h:hint  l:list  r:recompile  ↑↓:scroll  q:quit",
-        UiMode::List => "  ↑↓/jk:move  enter:work on this  r:reset  esc:back  q:back",
+        UiMode::Watch => "  n:next  h:hint  l:list  c:check-all  r:recompile  ↑↓:scroll  q:quit",
+        UiMode::List => {
+            "  ↑↓/jk:move  enter:work on this  r:reset  d:done  p:pending  /:search  esc:back"
+        }
+        UiMode::CheckAll => "  (running…)  q/esc/enter:back once done",
     };
     frame.render_widget(
         Paragraph::new(Span::styled(keys, Style::default().fg(Color::DarkGray))),

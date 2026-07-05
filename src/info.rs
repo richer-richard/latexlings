@@ -57,6 +57,10 @@ pub struct Exercise {
     /// (e.g. intro1). dev-check uses this to assert brokenness.
     #[serde(default)]
     pub compiles_as_shipped: bool,
+    /// When true, non-empty chktex output blocks `Done` the same way a
+    /// failing check does. Default false: chktex output is informational only.
+    #[serde(default)]
+    pub strict_chktex: bool,
 }
 
 impl Exercise {
@@ -118,31 +122,109 @@ pub fn find_root() -> Result<PathBuf> {
 }
 
 // ---------------------------------------------------------------------------
-// progress state: one exercise name per line in .latexlings-state.txt
+// progress state: one exercise name per line in .latexlings-state.txt,
+// optionally suffixed with a tab and the unix-epoch-seconds mtime the
+// exercise's source had when it was last verified Done (used by check_all's
+// memoization). A line with no tab has no cached mtime and is always
+// reverified on the next sweep.
 // ---------------------------------------------------------------------------
+
+use std::collections::BTreeMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn state_path(root: &Path) -> PathBuf {
     root.join(".latexlings-state.txt")
 }
 
-pub fn load_done(root: &Path) -> BTreeSet<String> {
-    fs::read_to_string(state_path(root))
-        .map(|s| {
-            s.lines()
-                .map(str::trim)
-                .filter(|l| !l.is_empty() && !l.starts_with('#'))
-                .map(String::from)
-                .collect()
-        })
-        .unwrap_or_default()
+#[derive(Default, Clone, Debug)]
+pub struct DoneState {
+    entries: BTreeMap<String, Option<SystemTime>>,
 }
 
-pub fn save_done(root: &Path, done: &BTreeSet<String>) -> Result<()> {
-    let mut text: String = done.iter().map(|n| format!("{n}\n")).collect();
-    text.insert_str(
-        0,
-        "# latexlings progress — safe to delete if you want to start over\n",
-    );
+impl DoneState {
+    pub fn contains(&self, name: &str) -> bool {
+        self.entries.contains_key(name)
+    }
+
+    pub fn mtime(&self, name: &str) -> Option<SystemTime> {
+        self.entries.get(name).copied().flatten()
+    }
+
+    /// Returns true if `name` was not already tracked.
+    pub fn insert(&mut self, name: String, mtime: Option<SystemTime>) -> bool {
+        let is_new = !self.entries.contains_key(&name);
+        self.entries.insert(name, mtime);
+        is_new
+    }
+
+    pub fn remove(&mut self, name: &str) -> bool {
+        self.entries.remove(name).is_some()
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    // Kept to satisfy clippy's len_without_is_empty convention on `len`; no
+    // caller needs it yet, so allow the resulting dead_code warning here.
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
+fn parse_mtime_secs(s: &str) -> Option<SystemTime> {
+    s.parse::<u64>()
+        .ok()
+        .map(|secs| UNIX_EPOCH + std::time::Duration::from_secs(secs))
+}
+
+fn format_mtime_secs(t: SystemTime) -> Option<u64> {
+    t.duration_since(UNIX_EPOCH).ok().map(|d| d.as_secs())
+}
+
+/// Truncate a `SystemTime` to whole-second resolution, matching what
+/// `.latexlings-state.txt` persists — so a value compared against one
+/// that has round-tripped through `load_done`/`save_done` (or one that
+/// hasn't yet) always compares at the same precision.
+pub fn truncate_to_secs(t: SystemTime) -> SystemTime {
+    let secs = t
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    UNIX_EPOCH + std::time::Duration::from_secs(secs)
+}
+
+pub fn load_done(root: &Path) -> DoneState {
+    let mut state = DoneState::default();
+    if let Ok(text) = fs::read_to_string(state_path(root)) {
+        for line in text.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            match line.split_once('\t') {
+                Some((name, mtime_str)) => {
+                    state.insert(name.to_string(), parse_mtime_secs(mtime_str));
+                }
+                None => {
+                    state.insert(line.to_string(), None);
+                }
+            }
+        }
+    }
+    state
+}
+
+pub fn save_done(root: &Path, done: &DoneState) -> Result<()> {
+    let mut text =
+        String::from("# latexlings progress — safe to delete if you want to start over\n");
+    for (name, mtime) in &done.entries {
+        match mtime.and_then(format_mtime_secs) {
+            Some(secs) => text.push_str(&format!("{name}\t{secs}\n")),
+            None => text.push_str(&format!("{name}\n")),
+        }
+    }
     fs::write(state_path(root), text).context("writing progress state")
 }
 
@@ -181,7 +263,10 @@ pub fn init(target: &Path) -> Result<()> {
         "This file marks a latexlings practice directory. Keep it.\n",
     )?;
     fs::write(target.join(".gitignore"), "build/\n.latexlings-state.txt\n")?;
-    println!("initialized latexlings practice directory: {}", target.display());
+    println!(
+        "initialized latexlings practice directory: {}",
+        target.display()
+    );
     println!();
     println!("    cd {}", target.display());
     println!("    latexlings        # start the watch TUI");
@@ -203,4 +288,49 @@ pub fn reset(root: &Path, ex: &Exercise) -> Result<()> {
     }
     println!("reset {}", ex.rel_path());
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{Duration, UNIX_EPOCH};
+
+    #[test]
+    fn done_state_round_trips_with_and_without_mtime() {
+        let dir = std::env::temp_dir().join(format!("latexlings-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let mut done = DoneState::default();
+        let mtime = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+        done.insert("intro1".to_string(), Some(mtime));
+        done.insert("intro2".to_string(), None);
+        save_done(&dir, &done).unwrap();
+
+        let loaded = load_done(&dir);
+        assert!(loaded.contains("intro1"));
+        assert_eq!(loaded.mtime("intro1"), Some(mtime));
+        assert!(loaded.contains("intro2"));
+        assert_eq!(loaded.mtime("intro2"), None);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn done_state_reads_legacy_no_mtime_format() {
+        let dir =
+            std::env::temp_dir().join(format!("latexlings-test-legacy-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join(".latexlings-state.txt"),
+            "# latexlings progress\nintro1\nintro2\n",
+        )
+        .unwrap();
+
+        let loaded = load_done(&dir);
+        assert!(loaded.contains("intro1"));
+        assert_eq!(loaded.mtime("intro1"), None);
+        assert!(loaded.contains("intro2"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

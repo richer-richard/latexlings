@@ -20,7 +20,7 @@ assignments** — you write a document from a spec, and latexlings checks the
 │    ! Missing $ inserted.                                 │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
-  n:next  h:hint  l:list  r:recompile  ↑↓:scroll  q:quit
+  n:next  h:hint  l:list  c:check-all  r:recompile  ↑↓:scroll  q:quit
 ```
 
 ## Prerequisites
@@ -41,8 +41,11 @@ cd latexlings
 latexlings           # the watch TUI
 ```
 
-Open the shown `.tex` file in vim in another pane. Every `:w` triggers a
-recompile. Make it pass, delete the `% I AM NOT DONE` line, press `n`.
+Watch mode auto-opens the current exercise for you (VS Code, a reused
+tmux/Zellij pane, or `$EDITOR`) — every `:w` triggers a recompile. Make it
+pass, delete the `% I AM NOT DONE` line, press `n`. Want a different editor?
+Pass `--edit-cmd <cmd>`. Don't want auto-open at all? Pass `--no-editor`
+(or set `LATEXLINGS_NO_EDITOR`).
 
 ## Commands
 
@@ -55,6 +58,12 @@ recompile. Make it pass, delete the `% I AM NOT DONE` line, press `n`.
 | `latexlings list` | plain progress list |
 | `latexlings reset <name>` | restore an exercise to its shipped state |
 | `latexlings solution <name>` | print the reference solution |
+
+After a successful compile, latexlings also runs `chktex` (if installed)
+and prints any lint notes it finds. This is best-effort and informational
+by default — an exercise can opt in to `strict_chktex` in `info.toml` to
+treat its lint warnings as a hard failure instead, though none of the
+shipped exercises currently do.
 
 ## The course
 
@@ -77,6 +86,9 @@ covers everything the early exercises need.
 
 `latexlings dev-check` (run in the repo) asserts every exercise fails the
 way it should as shipped, and every solution compiles and passes its checks.
+
+`latexlings dev-new <category>/<name> [--mode fix|write]` scaffolds a new
+exercise + solution skeleton and prints the `info.toml` entry to paste in.
 
 ## License
 

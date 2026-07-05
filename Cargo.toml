@@ -16,6 +16,7 @@ include_dir = "0.7"
 ratatui = "0.29"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
+shlex = "1"
 toml = "0.8"
 
 [profile.release]
