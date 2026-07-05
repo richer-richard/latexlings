@@ -22,6 +22,13 @@ enum UiMode {
     CheckAll,
 }
 
+#[derive(PartialEq, Clone, Copy)]
+enum ListFilter {
+    None,
+    Done,
+    Pending,
+}
+
 pub struct App {
     root: PathBuf,
     exercises: Vec<Exercise>,
@@ -37,6 +44,8 @@ pub struct App {
     flash: Option<String>,
     check_results: Vec<Option<Status>>,
     check_rx: Option<std::sync::mpsc::Receiver<crate::check_all::JobResult>>,
+    list_filter: ListFilter,
+    search: Option<String>,
 }
 
 impl App {
@@ -63,6 +72,8 @@ impl App {
             flash: None,
             check_results: Vec::new(),
             check_rx: None,
+            list_filter: ListFilter::None,
+            search: None,
         }
     }
 
@@ -99,6 +110,19 @@ impl App {
         self.scroll = 0;
         self.last_mtime = None;
         self.dirty = !self.all_done();
+    }
+
+    fn visible_rows(&self) -> Vec<usize> {
+        self.exercises
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| match self.list_filter {
+                ListFilter::None => true,
+                ListFilter::Done => self.done.contains(&e.name),
+                ListFilter::Pending => !self.done.contains(&e.name),
+            })
+            .map(|(i, _)| i)
+            .collect()
     }
 }
 
@@ -190,6 +214,29 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                             KeyCode::PageDown => app.scroll = app.scroll.saturating_add(10),
                             _ => {}
                         },
+                        UiMode::List if app.search.is_some() => match key.code {
+                            KeyCode::Esc | KeyCode::Enter => app.search = None,
+                            KeyCode::Backspace => {
+                                if let Some(q) = &mut app.search {
+                                    q.pop();
+                                }
+                            }
+                            KeyCode::Char(c) => {
+                                if let Some(q) = &mut app.search {
+                                    q.push(c);
+                                }
+                                let rows = app.visible_rows();
+                                if let Some(q) = &app.search {
+                                    if let Some(pos) = rows
+                                        .iter()
+                                        .position(|&i| app.exercises[i].name.contains(q.as_str()))
+                                    {
+                                        app.list_state.select(Some(pos));
+                                    }
+                                }
+                            }
+                            _ => {}
+                        },
                         UiMode::List => match key.code {
                             KeyCode::Char('q') | KeyCode::Esc | KeyCode::Char('l') => {
                                 app.mode = UiMode::Watch
@@ -199,12 +246,16 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                 app.list_state.select(Some(i.saturating_sub(1)));
                             }
                             KeyCode::Down | KeyCode::Char('j') => {
+                                let rows = app.visible_rows();
                                 let i = app.list_state.selected().unwrap_or(0);
                                 app.list_state
-                                    .select(Some((i + 1).min(app.exercises.len() - 1)));
+                                    .select(Some((i + 1).min(rows.len().saturating_sub(1))));
                             }
                             KeyCode::Enter => {
-                                if let Some(i) = app.list_state.selected() {
+                                let rows = app.visible_rows();
+                                if let Some(i) =
+                                    app.list_state.selected().and_then(|i| rows.get(i)).copied()
+                                {
                                     app.current = i;
                                     app.status = None;
                                     app.scroll = 0;
@@ -214,7 +265,10 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                 }
                             }
                             KeyCode::Char('r') => {
-                                if let Some(i) = app.list_state.selected() {
+                                let rows = app.visible_rows();
+                                if let Some(i) =
+                                    app.list_state.selected().and_then(|i| rows.get(i)).copied()
+                                {
                                     let ex = app.exercises[i].clone();
                                     info::reset(&app.root, &ex)?;
                                     app.done.remove(&ex.name);
@@ -223,6 +277,25 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                         app.dirty = true;
                                     }
                                 }
+                            }
+                            KeyCode::Char('d') => {
+                                app.list_filter = if app.list_filter == ListFilter::Done {
+                                    ListFilter::None
+                                } else {
+                                    ListFilter::Done
+                                };
+                                app.list_state.select(Some(0));
+                            }
+                            KeyCode::Char('p') => {
+                                app.list_filter = if app.list_filter == ListFilter::Pending {
+                                    ListFilter::None
+                                } else {
+                                    ListFilter::Pending
+                                };
+                                app.list_state.select(Some(0));
+                            }
+                            KeyCode::Char('/') => {
+                                app.search = Some(String::new());
                             }
                             _ => {}
                         },
@@ -424,10 +497,10 @@ fn draw_watch(frame: &mut Frame, area: Rect, app: &App) {
 
 fn draw_list(frame: &mut Frame, area: Rect, app: &mut App) {
     let rows: Vec<Row> = app
-        .exercises
-        .iter()
-        .enumerate()
-        .map(|(i, e)| {
+        .visible_rows()
+        .into_iter()
+        .map(|i| {
+            let e = &app.exercises[i];
             let done = app.done.contains(&e.name);
             let icon = if done {
                 Span::styled("✓", Style::default().fg(ACCENT))
@@ -492,7 +565,7 @@ fn draw_check_all(frame: &mut Frame, area: Rect, app: &App) {
 fn draw_footer(frame: &mut Frame, area: Rect, app: &App) {
     let keys = match app.mode {
         UiMode::Watch => "  n:next  h:hint  l:list  c:check-all  r:recompile  ↑↓:scroll  q:quit",
-        UiMode::List => "  ↑↓/jk:move  enter:work on this  r:reset  esc:back  q:back",
+        UiMode::List => "  ↑↓/jk:move  enter:work on this  r:reset  d:done  p:pending  /:search  esc:back",
         UiMode::CheckAll => "  (running…)  q/esc/enter:back once done",
     };
     frame.render_widget(
