@@ -14,12 +14,76 @@
 use crate::info::{Exercise, Mode, MARKER};
 use crate::verify::{verify, Status};
 use anyhow::Result;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 struct Failure {
     exercise: String,
     problem: String,
+}
+
+/// Every exercise `name` and `dir` must be non-empty and made only of
+/// ASCII alphanumerics/underscores — anything else risks unsafe paths or
+/// broken `hint`/`run` lookups by name.
+fn check_names_and_dirs(exercises: &[Exercise], fail: &mut impl FnMut(&str, String)) {
+    let valid = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+    for ex in exercises {
+        if !valid(&ex.name) {
+            fail(&ex.name, format!("name `{}` must be non-empty alphanumeric/underscore", ex.name));
+        }
+        if !valid(&ex.dir) {
+            fail(&ex.name, format!("dir `{}` must be non-empty alphanumeric/underscore", ex.dir));
+        }
+    }
+}
+
+/// Every `.tex` file under `exercises/` and `solutions/` must be reachable
+/// from `info.toml` — otherwise it's dead content nobody runs dev-check
+/// against, silently drifting out of sync.
+fn check_no_orphan_files(root: &Path, exercises: &[Exercise], fail: &mut impl FnMut(&str, String)) -> Result<()> {
+    let known_exercises: HashSet<String> = exercises.iter().map(Exercise::rel_path).collect();
+    check_orphans_in(&root.join("exercises"), root, &known_exercises, fail)?;
+
+    let known_solutions: HashSet<String> = exercises.iter().map(Exercise::solution_rel).collect();
+    check_orphans_in(&root.join("solutions"), root, &known_solutions, fail)?;
+    Ok(())
+}
+
+fn check_orphans_in(
+    base_dir: &Path,
+    root: &Path,
+    known: &HashSet<String>,
+    fail: &mut impl FnMut(&str, String),
+) -> Result<()> {
+    if !base_dir.is_dir() {
+        return Ok(());
+    }
+    for entry in walk_tex_files(base_dir)? {
+        let rel = entry
+            .strip_prefix(root)
+            .unwrap_or(&entry)
+            .to_string_lossy()
+            .replace('\\', "/");
+        if !known.contains(&rel) {
+            fail("(orphan)", format!("{rel} is not referenced by any exercise in info.toml"));
+        }
+    }
+    Ok(())
+}
+
+fn walk_tex_files(dir: &Path) -> Result<Vec<PathBuf>> {
+    let mut out = Vec::new();
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            out.extend(walk_tex_files(&path)?);
+        } else if path.extension().is_some_and(|e| e == "tex") {
+            out.push(path);
+        }
+    }
+    Ok(out)
 }
 
 fn scratch_root(ex: &Exercise, solution_text: &str) -> Result<PathBuf> {
@@ -40,6 +104,9 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
         println!("  ✗ {name}: {problem}");
         failures.push(Failure { exercise: name.into(), problem });
     };
+
+    check_names_and_dirs(exercises, &mut fail);
+    check_no_orphan_files(root, exercises, &mut fail)?;
 
     // Phase 1: cheap sequential checks + scratch-root setup for every exercise.
     let mut solution_jobs = Vec::new();
