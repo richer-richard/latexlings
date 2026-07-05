@@ -209,7 +209,11 @@ pub fn run_chktex(root: &Path, ex: &Exercise) -> Option<LintResult> {
 /// Runs the normal verify pipeline, then — only if it compiled — best-effort
 /// chktex. If `ex.strict_chktex` and chktex produced notes, downgrades a
 /// would-be-Done/MarkerPresent status to ChecksFail so lint issues block
-/// completion the same way a failing content check does.
+/// completion the same way a failing content check does. If the exercise
+/// already failed its content checks (`ChecksFail`), the chktex notes are
+/// merged into the existing note list instead of replacing it, so a
+/// double-failure (content checks AND strict chktex) doesn't lose the
+/// original diagnostic detail.
 pub fn verify_with_lints(root: &Path, ex: &Exercise) -> (Status, Option<LintResult>) {
     let status = verify(root, ex);
     if matches!(status, Status::CompileFail(_) | Status::ToolMissing(_)) {
@@ -218,8 +222,15 @@ pub fn verify_with_lints(root: &Path, ex: &Exercise) -> (Status, Option<LintResu
     let lints = run_chktex(root, ex);
     let has_notes = lints.as_ref().map(|l| !l.notes.is_empty()).unwrap_or(false);
     if ex.strict_chktex && has_notes {
-        let notes = lints.as_ref().unwrap().notes.clone();
-        return (Status::ChecksFail(notes, String::new()), lints);
+        let chktex_notes = lints.as_ref().unwrap().notes.clone();
+        let new_status = match status {
+            Status::ChecksFail(mut notes, excerpt) => {
+                notes.extend(chktex_notes.into_iter().map(|n| format!("chktex: {n}")));
+                Status::ChecksFail(notes, excerpt)
+            }
+            _ => Status::ChecksFail(chktex_notes, String::new()),
+        };
+        return (new_status, lints);
     }
     (status, lints)
 }
