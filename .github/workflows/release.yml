@@ -19,6 +19,8 @@ jobs:
 
   build-binaries:
     needs: ci-gate
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
