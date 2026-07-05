@@ -13,7 +13,7 @@
 
 use crate::info::{Exercise, Mode, MARKER};
 use crate::verify::{verify, Status};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -64,8 +64,20 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
             fail(&ex.name, "write-mode exercise with no checks".into());
         }
 
-        let ex_text = fs::read_to_string(&ex_path)?;
-        let sol_text = fs::read_to_string(&sol_path)?;
+        let ex_text = match fs::read_to_string(&ex_path) {
+            Ok(t) => t,
+            Err(e) => {
+                fail(&ex.name, format!("cannot read exercise file: {e}"));
+                continue;
+            }
+        };
+        let sol_text = match fs::read_to_string(&sol_path) {
+            Ok(t) => t,
+            Err(e) => {
+                fail(&ex.name, format!("cannot read solution file: {e}"));
+                continue;
+            }
+        };
         if !ex_text.contains(MARKER) {
             fail(&ex.name, format!("shipped exercise lacks `% {MARKER}` marker"));
         }
@@ -95,7 +107,13 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
             ),
         }
 
-        let sroot = scratch_root(ex, &sol_text).context("building scratch root")?;
+        let sroot = match scratch_root(ex, &sol_text) {
+            Ok(r) => r,
+            Err(e) => {
+                fail(&ex.name, format!("cannot build scratch root: {e}"));
+                continue;
+            }
+        };
         solution_jobs.push(crate::check_all::Job { index: i, root: sroot.clone(), exercise: ex.clone() });
         scratch_roots.push(sroot);
     }
