@@ -47,10 +47,15 @@ pub struct App {
     check_rx: Option<std::sync::mpsc::Receiver<crate::check_all::JobResult>>,
     list_filter: ListFilter,
     search: Option<String>,
+    editor_config: crate::editor::EditorConfig,
 }
 
 impl App {
-    pub fn new(root: PathBuf, exercises: Vec<Exercise>) -> Self {
+    pub fn new(
+        root: PathBuf,
+        exercises: Vec<Exercise>,
+        editor_config: crate::editor::EditorConfig,
+    ) -> Self {
         let done = info::load_done(&root);
         let current = exercises
             .iter()
@@ -76,6 +81,7 @@ impl App {
             check_rx: None,
             list_filter: ListFilter::None,
             search: None,
+            editor_config,
         }
     }
 
@@ -129,9 +135,13 @@ impl App {
     }
 }
 
-pub fn run_watch(root: PathBuf, exercises: Vec<Exercise>) -> Result<()> {
+pub fn run_watch(
+    root: PathBuf,
+    exercises: Vec<Exercise>,
+    editor_config: crate::editor::EditorConfig,
+) -> Result<()> {
     let mut terminal = ratatui::init();
-    let app = App::new(root, exercises);
+    let app = App::new(root, exercises, editor_config);
     let result = event_loop(&mut terminal, app);
     ratatui::restore();
     result
@@ -143,6 +153,7 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
             app.flash = Some("compiling…".into());
             terminal.draw(|f| draw(f, &mut app))?;
             let ex = app.cur().unwrap().clone();
+            crate::editor::open(&app.editor_config, &ex.path(&app.root));
             let (status, lints) = verify::verify_with_lints(&app.root, &ex);
             if status.is_done() {
                 let mtime = app.mtime().map(info::truncate_to_secs);
@@ -261,6 +272,10 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                     app.list_state.selected().and_then(|i| rows.get(i)).copied()
                                 {
                                     app.current = i;
+                                    crate::editor::open(
+                                        &app.editor_config,
+                                        &app.exercises[i].path(&app.root),
+                                    );
                                     app.status = None;
                                     app.lints = None;
                                     app.scroll = 0;

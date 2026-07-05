@@ -1,5 +1,6 @@
 mod check_all;
 mod dev;
+mod editor;
 mod info;
 mod tui;
 mod verify;
@@ -27,6 +28,12 @@ Usage:
   latexlings solution <name> print the reference solution
   latexlings dev-new <category>/<name> [--mode fix|write]
                              scaffold a new exercise + solution skeleton
+
+Flags (watch mode only):
+  --edit-cmd <cmd>           open the current exercise with this command
+                             instead of auto-detecting an editor
+  --no-editor                never auto-open an editor (same as setting
+                             LATEXLINGS_NO_EDITOR)
 
 Workflow: run `latexlings` in one terminal pane, edit the shown .tex file
 with vim in another. On every :w it recompiles; fix the file (or write the
@@ -136,8 +143,25 @@ fn cmd_list(root: &Path, exercises: &[Exercise]) {
     println!("\n{}/{} done", done.len(), exercises.len());
 }
 
+/// Pulls `--edit-cmd <value>` and `--no-editor` out of `args`, wherever they
+/// appear, and builds the resulting `EditorConfig`. Removing them up front
+/// (rather than just reading past them) keeps subcommand dispatch (`args
+/// .first()`) and positional lookups (`args.get(1)`, …) working regardless
+/// of where the caller places these flags — including with no subcommand at
+/// all, e.g. `latexlings --no-editor`.
+fn take_editor_flags(args: &mut Vec<String>) -> editor::EditorConfig {
+    let edit_cmd = args.iter().position(|a| a == "--edit-cmd").and_then(|i| {
+        args.remove(i);
+        (i < args.len()).then(|| args.remove(i))
+    });
+    let no_editor = args.iter().position(|a| a == "--no-editor").map(|i| args.remove(i)).is_some()
+        || env::var("LATEXLINGS_NO_EDITOR").is_ok();
+    editor::EditorConfig { edit_cmd, disabled: no_editor }
+}
+
 fn real_main() -> Result<bool> {
-    let args: Vec<String> = env::args().skip(1).collect();
+    let mut args: Vec<String> = env::args().skip(1).collect();
+    let editor_config = take_editor_flags(&mut args);
     let cmd = args.first().map(String::as_str);
 
     match cmd {
@@ -168,7 +192,7 @@ fn real_main() -> Result<bool> {
 
     match cmd {
         None | Some("watch") => {
-            tui::run_watch(root, exercises)?;
+            tui::run_watch(root, exercises, editor_config)?;
             Ok(true)
         }
         Some("run") => {
