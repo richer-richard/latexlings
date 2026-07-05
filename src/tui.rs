@@ -1,5 +1,6 @@
 //! The watch/list TUI, in the spirit of rustlings' watch mode.
 
+use crate::check_all;
 use crate::info::{self, Exercise, MARKER};
 use crate::verify::{verify, Status};
 use anyhow::Result;
@@ -18,6 +19,7 @@ const ACCENT: Color = Color::Green;
 enum UiMode {
     Watch,
     List,
+    CheckAll,
 }
 
 pub struct App {
@@ -33,6 +35,8 @@ pub struct App {
     last_mtime: Option<SystemTime>,
     dirty: bool,
     flash: Option<String>,
+    check_results: Vec<Option<Status>>,
+    check_rx: Option<std::sync::mpsc::Receiver<crate::check_all::JobResult>>,
 }
 
 impl App {
@@ -57,6 +61,8 @@ impl App {
             last_mtime: None,
             dirty: true,
             flash: None,
+            check_results: Vec::new(),
+            check_rx: None,
         }
     }
 
@@ -126,6 +132,23 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
         }
         terminal.draw(|f| draw(f, &mut app))?;
 
+        if let Some(rx) = &app.check_rx {
+            let mut disconnected = false;
+            loop {
+                match rx.try_recv() {
+                    Ok(result) => app.check_results[result.index] = Some(result.status),
+                    Err(std::sync::mpsc::TryRecvError::Empty) => break,
+                    Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                        disconnected = true;
+                        break;
+                    }
+                }
+            }
+            if disconnected {
+                app.check_rx = None;
+            }
+        }
+
         if event::poll(Duration::from_millis(250))? {
             match event::read()? {
                 Event::Key(key) if key.kind == KeyEventKind::Press => {
@@ -149,6 +172,17 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                     app.current.min(app.exercises.len().saturating_sub(1)),
                                 ));
                                 app.mode = UiMode::List;
+                            }
+                            KeyCode::Char('c') => {
+                                app.check_results = vec![None; app.exercises.len()];
+                                let (jobs, cached) =
+                                    check_all::plan_sweep(&app.root, &app.exercises, &app.done);
+                                for (i, status) in cached {
+                                    app.check_results[i] = Some(status);
+                                }
+                                let verifier: check_all::Verifier = std::sync::Arc::new(verify);
+                                app.check_rx = Some(check_all::spawn(jobs, verifier));
+                                app.mode = UiMode::CheckAll;
                             }
                             KeyCode::Up => app.scroll = app.scroll.saturating_sub(1),
                             KeyCode::Down => app.scroll = app.scroll.saturating_add(1),
@@ -192,6 +226,35 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                             }
                             _ => {}
                         },
+                        UiMode::CheckAll => match key.code {
+                            KeyCode::Char('q') | KeyCode::Esc | KeyCode::Enter
+                                if app.check_rx.is_none() =>
+                            {
+                                // Sweep finished — reconcile and return to Watch.
+                                for (i, status) in app.check_results.iter().enumerate() {
+                                    if let Some(status) = status {
+                                        if status.is_done() {
+                                            let ex = &app.exercises[i];
+                                            let mtime = std::fs::metadata(ex.path(&app.root))
+                                                .and_then(|m| m.modified())
+                                                .ok()
+                                                .map(info::truncate_to_secs);
+                                            app.done.insert(ex.name.clone(), mtime);
+                                        }
+                                    }
+                                }
+                                info::save_done(&app.root, &app.done)?;
+                                app.current = app
+                                    .exercises
+                                    .iter()
+                                    .position(|e| !app.done.contains(&e.name))
+                                    .unwrap_or(app.exercises.len());
+                                app.status = None;
+                                app.dirty = !app.all_done();
+                                app.mode = UiMode::Watch;
+                            }
+                            _ => {}
+                        },
                     }
                 }
                 Event::Resize(_, _) => {}
@@ -215,6 +278,7 @@ fn draw(frame: &mut Frame, app: &mut App) {
     match app.mode {
         UiMode::Watch => draw_watch(frame, main, app),
         UiMode::List => draw_list(frame, main, app),
+        UiMode::CheckAll => draw_check_all(frame, main, app),
     }
     draw_footer(frame, footer, app);
 }
@@ -400,10 +464,36 @@ fn draw_list(frame: &mut Frame, area: Rect, app: &mut App) {
     frame.render_stateful_widget(table, area, &mut app.list_state);
 }
 
+fn draw_check_all(frame: &mut Frame, area: Rect, app: &App) {
+    let done_now =
+        app.check_results.iter().filter(|s| matches!(s, Some(st) if st.is_done())).count();
+    let checked = app.check_results.iter().filter(|s| s.is_some()).count();
+    let total = app.exercises.len();
+    let title = if app.check_rx.is_some() {
+        format!(" checking all — {checked}/{total} ")
+    } else {
+        format!(" check all complete — {done_now}/{total} done (press enter) ")
+    };
+    let mut spans: Vec<Span> = Vec::new();
+    for status in &app.check_results {
+        let (ch, color) = match status {
+            None => ('░', Color::DarkGray),
+            Some(s) if s.is_done() => ('█', ACCENT),
+            Some(_) => ('█', Color::Red),
+        };
+        spans.push(Span::styled(ch.to_string(), Style::default().fg(color)));
+    }
+    let para = Paragraph::new(Line::from(spans))
+        .block(Block::default().borders(Borders::ALL).title(title))
+        .wrap(Wrap { trim: false });
+    frame.render_widget(para, area);
+}
+
 fn draw_footer(frame: &mut Frame, area: Rect, app: &App) {
     let keys = match app.mode {
-        UiMode::Watch => "  n:next  h:hint  l:list  r:recompile  ↑↓:scroll  q:quit",
+        UiMode::Watch => "  n:next  h:hint  l:list  c:check-all  r:recompile  ↑↓:scroll  q:quit",
         UiMode::List => "  ↑↓/jk:move  enter:work on this  r:reset  esc:back  q:back",
+        UiMode::CheckAll => "  (running…)  q/esc/enter:back once done",
     };
     frame.render_widget(
         Paragraph::new(Span::styled(keys, Style::default().fg(Color::DarkGray))),
