@@ -25,6 +25,8 @@ Usage:
   latexlings list            plain list of all exercises and their status
   latexlings reset <name>    restore an exercise to its original state
   latexlings solution <name> print the reference solution
+  latexlings dev-new <category>/<name> [--mode fix|write]
+                             scaffold a new exercise + solution skeleton
 
 Workflow: run `latexlings` in one terminal pane, edit the shown .tex file
 with vim in another. On every :w it recompiles; fix the file (or write the
@@ -177,6 +179,25 @@ fn real_main() -> Result<bool> {
         }
         Some("verify") => cmd_verify(&root, &exercises),
         Some("dev-check") => dev::dev_check(&root, &exercises),
+        Some("dev-new") => {
+            let spec = args.get(1).ok_or_else(|| {
+                anyhow::anyhow!("usage: latexlings dev-new <category>/<name> [--mode fix|write]")
+            })?;
+            let (category, name) = spec
+                .split_once('/')
+                .ok_or_else(|| anyhow::anyhow!("expected <category>/<name>, e.g. 16_something/foo1"))?;
+            let mode = match args
+                .iter()
+                .position(|a| a == "--mode")
+                .and_then(|i| args.get(i + 1))
+                .map(String::as_str)
+            {
+                Some("write") => info::Mode::Write,
+                _ => info::Mode::Fix,
+            };
+            dev::dev_new(&root, category, name, mode)?;
+            Ok(true)
+        }
         Some("hint") => {
             let Some(name) = args.get(1) else { bail!("usage: latexlings hint <name>") };
             let ex = find_exercise(&exercises, name)?;

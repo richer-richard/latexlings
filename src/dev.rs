@@ -13,7 +13,7 @@
 
 use crate::info::{Exercise, Mode, MARKER};
 use crate::verify::{verify, Status};
-use anyhow::Result;
+use anyhow::{bail, Result};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -221,4 +221,56 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
         }
         Ok(false)
     }
+}
+
+/// Scaffold a new exercise + solution `.tex` skeleton under `category`,
+/// and print an `[[exercises]]` stanza ready to paste into `info.toml`.
+///
+/// Deliberately does NOT touch `info.toml` itself: it carries hand-authored
+/// section-header comment banners (see the `# ── 00_intro ──` banners at
+/// the top of the shipped file) that a naive append/insert would either
+/// clobber or land in the wrong section. Printing the stanza for a human to
+/// paste keeps that authoring under human control.
+pub fn dev_new(root: &Path, category: &str, name: &str, mode: Mode) -> Result<()> {
+    let ex_dir = root.join("exercises").join(category);
+    let sol_dir = root.join("solutions").join(category);
+    fs::create_dir_all(&ex_dir)?;
+    fs::create_dir_all(&sol_dir)?;
+
+    let ex_path = ex_dir.join(format!("{name}.tex"));
+    let sol_path = sol_dir.join(format!("{name}.tex"));
+    if ex_path.exists() || sol_path.exists() {
+        bail!("{name} already exists under {category} — pick a different name");
+    }
+
+    let (skeleton, solution, checks_comment): (&str, &str, &str) = match mode {
+        Mode::Fix => (
+            "% I AM NOT DONE\n\\documentclass{article}\n\\begin{document}\nHello\n\\end{document}\n",
+            "\\documentclass{article}\n\\begin{document}\nHello\n\\end{document}\n",
+            "",
+        ),
+        Mode::Write => (
+            "% I AM NOT DONE\n\\documentclass{article}\n\\begin{document}\n% write the requested content here\n\\end{document}\n",
+            "\\documentclass{article}\n\\begin{document}\nExpected content\n\\end{document}\n",
+            "checks = [{ pattern = \"...\", note = \"...\" }]\n",
+        ),
+    };
+    fs::write(&ex_path, skeleton)?;
+    fs::write(&sol_path, solution)?;
+
+    println!("created {}", ex_path.display());
+    println!("created {}", sol_path.display());
+    println!();
+    println!("Paste this into info.toml under the `{category}` section:");
+    println!();
+    println!("[[exercises]]");
+    println!("name = \"{name}\"");
+    println!("dir = \"{category}\"");
+    println!("mode = \"{}\"", mode.label());
+    if !checks_comment.is_empty() {
+        print!("{checks_comment}");
+    }
+    println!("hint = \"\"\"");
+    println!("Write a hint here.\"\"\"");
+    Ok(())
 }
