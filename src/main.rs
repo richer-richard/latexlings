@@ -64,7 +64,10 @@ fn cmd_run(root: &Path, ex: &Exercise) -> Result<bool> {
 /// Persist a completed exercise so watch/list agree with run/verify.
 fn mark_done(root: &Path, ex: &Exercise) -> Result<()> {
     let mut done = info::load_done(root);
-    let mtime = std::fs::metadata(ex.path(root)).and_then(|m| m.modified()).ok();
+    let mtime = std::fs::metadata(ex.path(root))
+        .and_then(|m| m.modified())
+        .ok()
+        .map(info::truncate_to_secs);
     let previous_mtime = done.mtime(&ex.name);
     let is_new = done.insert(ex.name.clone(), mtime);
     if is_new || previous_mtime != mtime {

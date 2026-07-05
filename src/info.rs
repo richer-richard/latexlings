@@ -177,6 +177,15 @@ fn format_mtime_secs(t: SystemTime) -> Option<u64> {
     t.duration_since(UNIX_EPOCH).ok().map(|d| d.as_secs())
 }
 
+/// Truncate a `SystemTime` to whole-second resolution, matching what
+/// `.latexlings-state.txt` persists — so a value compared against one
+/// that has round-tripped through `load_done`/`save_done` (or one that
+/// hasn't yet) always compares at the same precision.
+pub fn truncate_to_secs(t: SystemTime) -> SystemTime {
+    let secs = t.duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    UNIX_EPOCH + std::time::Duration::from_secs(secs)
+}
+
 pub fn load_done(root: &Path) -> DoneState {
     let mut state = DoneState::default();
     if let Ok(text) = fs::read_to_string(state_path(root)) {

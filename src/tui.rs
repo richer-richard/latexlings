@@ -112,7 +112,7 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
             let ex = app.cur().unwrap().clone();
             let status = verify(&app.root, &ex);
             if status.is_done() {
-                let mtime = app.mtime();
+                let mtime = app.mtime().map(info::truncate_to_secs);
                 let previous_mtime = app.done.mtime(&ex.name);
                 let is_new = app.done.insert(ex.name.clone(), mtime);
                 if is_new || previous_mtime != mtime {

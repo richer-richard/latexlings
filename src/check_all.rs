@@ -1,7 +1,7 @@
 //! Shared parallel verification engine used by the TUI "check all" mode,
 //! `latexlings verify`, and `dev-check`'s solution-verification pass.
 
-use crate::info::{DoneState, Exercise};
+use crate::info::{self, DoneState, Exercise};
 use crate::verify::Status;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -102,7 +102,10 @@ pub fn plan_sweep(
     let mut jobs = Vec::new();
     let mut cached = Vec::new();
     for (i, ex) in exercises.iter().enumerate() {
-        let current_mtime = std::fs::metadata(ex.path(root)).and_then(|m| m.modified()).ok();
+        let current_mtime = std::fs::metadata(ex.path(root))
+            .and_then(|m| m.modified())
+            .ok()
+            .map(info::truncate_to_secs);
         let unchanged = done.contains(&ex.name) && current_mtime.is_some() && done.mtime(&ex.name) == current_mtime;
         if unchanged {
             cached.push((i, Status::Done));
@@ -182,7 +185,11 @@ mod tests {
         let a_mtime = std::fs::metadata(&file_a).unwrap().modified().unwrap();
 
         let mut done = DoneState::default();
-        done.insert("a".to_string(), Some(a_mtime));
+        // Real `DoneState` entries are always whole-second (every insertion
+        // site truncates before storing, matching what a disk round trip
+        // through `.latexlings-state.txt` would produce), so mirror that here
+        // rather than storing a raw, full-precision mtime.
+        done.insert("a".to_string(), Some(info::truncate_to_secs(a_mtime)));
         // "b" is done but with a stale mtime far in the past -> must be rechecked.
         done.insert("b".to_string(), Some(SystemTime::UNIX_EPOCH + Duration::from_secs(1)));
         // "c" was never verified -> must be checked.
@@ -196,6 +203,55 @@ mod tests {
         let mut job_names: Vec<&str> = jobs.iter().map(|j| j.exercise.name.as_str()).collect();
         job_names.sort();
         assert_eq!(job_names, vec!["b", "c"]);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn plan_sweep_hits_cache_after_mtime_round_trips_through_saved_state() {
+        // Regression test for the mtime-precision mismatch: `.latexlings-state.txt`
+        // persists mtimes truncated to whole-second resolution (see
+        // `info::format_mtime_secs`/`parse_mtime_secs`), but a fresh
+        // `std::fs::metadata(...).modified()` read is full (sub-second)
+        // precision on filesystems like APFS/ext4. Every real
+        // `latexlings verify` invocation reloads `DoneState` from disk (already
+        // truncated) in a fresh process, then compares it against a fresh,
+        // untruncated mtime read. If `plan_sweep` used exact `SystemTime`
+        // equality across that precision mismatch, the cache hit would be
+        // defeated on nearly every real invocation — this test builds the
+        // `DoneState` via an actual save/load round trip (not purely in
+        // memory) to reproduce that exact scenario.
+        let dir = std::env::temp_dir()
+            .join(format!("latexlings-plan-roundtrip-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("exercises/00_intro")).unwrap();
+        let file_a = dir.join("exercises/00_intro/a.tex");
+        std::fs::write(&file_a, "unchanged").unwrap();
+
+        let exercises = vec![fake_exercise("a")];
+        let fresh_mtime = std::fs::metadata(&file_a).unwrap().modified().unwrap();
+
+        // Simulate what `mark_done` persisted after a prior `latexlings verify`
+        // run: the mtime captured (and truncated) at verification time,
+        // written to `.latexlings-state.txt`, then reloaded fresh as a new
+        // process would on its next invocation.
+        let mut done = DoneState::default();
+        done.insert("a".to_string(), Some(info::truncate_to_secs(fresh_mtime)));
+        info::save_done(&dir, &done).unwrap();
+        let done = info::load_done(&dir);
+
+        // The file is untouched since verification, so a fresh metadata read
+        // compared against the reloaded, disk-truncated state must still
+        // count as a cache hit — not be silently reverified.
+        let (jobs, cached) = plan_sweep(&dir, &exercises, &done);
+
+        assert_eq!(
+            cached.len(),
+            1,
+            "expected 'a' to be a cache hit after its mtime round-tripped through disk state"
+        );
+        assert_eq!(cached[0].0, 0);
+        assert!(cached[0].1.is_done());
+        assert!(jobs.is_empty());
 
         let _ = std::fs::remove_dir_all(&dir);
     }
