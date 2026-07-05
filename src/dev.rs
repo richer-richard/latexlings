@@ -23,16 +23,22 @@ struct Failure {
     problem: String,
 }
 
+/// A valid exercise/category identifier: non-empty and made only of ASCII
+/// alphanumerics/underscores — anything else risks unsafe paths (e.g. `..`
+/// path traversal) or broken `hint`/`run` lookups by name.
+fn is_valid_ident(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
 /// Every exercise `name` and `dir` must be non-empty and made only of
 /// ASCII alphanumerics/underscores — anything else risks unsafe paths or
 /// broken `hint`/`run` lookups by name.
 fn check_names_and_dirs(exercises: &[Exercise], fail: &mut impl FnMut(&str, String)) {
-    let valid = |s: &str| !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
     for ex in exercises {
-        if !valid(&ex.name) {
+        if !is_valid_ident(&ex.name) {
             fail(&ex.name, format!("name `{}` must be non-empty alphanumeric/underscore", ex.name));
         }
-        if !valid(&ex.dir) {
+        if !is_valid_ident(&ex.dir) {
             fail(&ex.name, format!("dir `{}` must be non-empty alphanumeric/underscore", ex.dir));
         }
     }
@@ -232,6 +238,13 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
 /// clobber or land in the wrong section. Printing the stanza for a human to
 /// paste keeps that authoring under human control.
 pub fn dev_new(root: &Path, category: &str, name: &str, mode: Mode) -> Result<()> {
+    if !is_valid_ident(category) {
+        bail!("category `{category}` must be non-empty alphanumeric/underscore");
+    }
+    if !is_valid_ident(name) {
+        bail!("name `{name}` must be non-empty alphanumeric/underscore");
+    }
+
     let ex_dir = root.join("exercises").join(category);
     let sol_dir = root.join("solutions").join(category);
     fs::create_dir_all(&ex_dir)?;
