@@ -1,11 +1,6 @@
 //! Shared parallel verification engine used by the TUI "check all" mode,
 //! `latexlings verify`, and `dev-check`'s solution-verification pass.
 
-// This module's whole public API has no caller yet — Tasks 3-6 wire it into
-// the CLI `verify` command, `dev-check`, and a new TUI mode. Allow dead_code
-// module-wide rather than repeating the annotation on every item until then.
-#![allow(dead_code)]
-
 use crate::info::Exercise;
 use crate::verify::Status;
 use std::path::{Path, PathBuf};
@@ -17,6 +12,9 @@ use std::thread;
 /// One unit of parallel verification work: an exercise checked against a
 /// specific root (the real practice root for normal checks, or a
 /// per-exercise scratch root for dev-check's solution pass).
+// No caller constructs a `Job` yet — Task 3 wires it into the CLI `verify`
+// command, so allow the resulting dead_code warning here until then.
+#[allow(dead_code)]
 pub struct Job {
     pub index: usize,
     pub root: PathBuf,
@@ -25,6 +23,9 @@ pub struct Job {
 
 /// A job's outcome, tagged with its original index so callers can map
 /// results back to input order regardless of completion order.
+// No caller reads a `JobResult` yet — Task 3 wires it into the CLI `verify`
+// command, so allow the resulting dead_code warning here until then.
+#[allow(dead_code)]
 pub struct JobResult {
     pub index: usize,
     pub status: Status,
@@ -38,6 +39,9 @@ pub type Verifier = Arc<dyn Fn(&Path, &Exercise) -> Status + Send + Sync>;
 /// shared atomic cursor. Returns immediately with a `Receiver` the caller
 /// drains as results land, in completion order (not input order) — use
 /// `JobResult::index` to recover input order.
+// No caller invokes `spawn` yet — Task 3 wires it into the CLI `verify`
+// command, so allow the resulting dead_code warning here until then.
+#[allow(dead_code)]
 pub fn spawn(jobs: Vec<Job>, verifier: Verifier) -> Receiver<JobResult> {
     let (tx, rx) = mpsc::channel();
     let n_jobs = jobs.len();
@@ -66,6 +70,9 @@ pub fn spawn(jobs: Vec<Job>, verifier: Verifier) -> Receiver<JobResult> {
 }
 
 /// Blocking convenience wrapper: run all jobs and collect every result.
+// No caller invokes `run_blocking` yet — Task 3 wires it into the CLI
+// `verify` command, so allow the resulting dead_code warning here until then.
+#[allow(dead_code)]
 pub fn run_blocking(jobs: Vec<Job>, verifier: Verifier) -> Vec<JobResult> {
     let n = jobs.len();
     if n == 0 {
