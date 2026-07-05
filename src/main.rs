@@ -39,7 +39,7 @@ fn find_exercise<'a>(exercises: &'a [Exercise], name: &str) -> Result<&'a Exerci
 
 fn cmd_run(root: &Path, ex: &Exercise) -> Result<bool> {
     println!("── {} [{}]", ex.rel_path(), ex.mode.label());
-    let status = verify::verify(root, ex);
+    let (status, lints) = verify::verify_with_lints(root, ex);
     match &status {
         verify::Status::Done => println!("✓ done"),
         verify::Status::MarkerPresent => {
@@ -56,6 +56,14 @@ fn cmd_run(root: &Path, ex: &Exercise) -> Result<bool> {
             println!("  rendered text starts with: {excerpt}");
         }
         verify::Status::ToolMissing(msg) => println!("✗ {msg}"),
+    }
+    if let Some(lints) = &lints {
+        if !lints.notes.is_empty() {
+            println!("── chktex notes:");
+            for n in &lints.notes {
+                println!("  • {n}");
+            }
+        }
     }
     if status.is_done() {
         mark_done(root, ex)?;

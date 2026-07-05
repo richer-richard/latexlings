@@ -166,3 +166,73 @@ pub fn summarize(status: &Status) -> String {
         Status::ToolMissing(_) => "missing tool".into(),
     }
 }
+
+pub struct LintResult {
+    pub notes: Vec<String>,
+}
+
+/// Extract `Warning ...` lines from chktex's stdout, dropping the trailing
+/// summary line and blank lines.
+fn parse_chktex_output(stdout: &str) -> Vec<String> {
+    stdout
+        .lines()
+        .filter(|l| l.starts_with("Warning"))
+        .map(str::to_string)
+        .collect()
+}
+
+/// Best-effort chktex pass: `None` if the tool isn't installed or the
+/// exercise doesn't compile (nothing meaningful to lint yet). Never treated
+/// as a hard failure the way a missing pdflatex/pdftotext is.
+pub fn run_chktex(root: &Path, ex: &Exercise) -> Option<LintResult> {
+    let output = Command::new("chktex")
+        .arg("-q")
+        .current_dir(root)
+        .arg(ex.rel_path())
+        .output()
+        .ok()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Some(LintResult { notes: parse_chktex_output(&stdout) })
+}
+
+/// Runs the normal verify pipeline, then — only if it compiled — best-effort
+/// chktex. If `ex.strict_chktex` and chktex produced notes, downgrades a
+/// would-be-Done/MarkerPresent status to ChecksFail so lint issues block
+/// completion the same way a failing content check does.
+pub fn verify_with_lints(root: &Path, ex: &Exercise) -> (Status, Option<LintResult>) {
+    let status = verify(root, ex);
+    if matches!(status, Status::CompileFail(_) | Status::ToolMissing(_)) {
+        return (status, None);
+    }
+    let lints = run_chktex(root, ex);
+    let has_notes = lints.as_ref().map(|l| !l.notes.is_empty()).unwrap_or(false);
+    if ex.strict_chktex && has_notes {
+        let notes = lints.as_ref().unwrap().notes.clone();
+        return (Status::ChecksFail(notes, String::new()), lints);
+    }
+    (status, lints)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_chktex_notes_extracts_warning_lines() {
+        let sample = "\
+Warning 1 in ./foo.tex line 12: Command terminated with space.\n\
+Warning 24 in ./foo.tex line 20: Delete this space to maintain correctness.\n\
+\n\
+ChkTeX: 2 warnings printed; 0 errors printed.\n";
+        let notes = parse_chktex_output(sample);
+        assert_eq!(notes.len(), 2);
+        assert!(notes[0].contains("line 12"));
+        assert!(notes[1].contains("line 20"));
+    }
+
+    #[test]
+    fn parse_chktex_notes_on_clean_output_is_empty() {
+        let sample = "ChkTeX: No warnings printed.\n";
+        assert!(parse_chktex_output(sample).is_empty());
+    }
+}

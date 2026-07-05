@@ -121,6 +121,7 @@ mod tests {
             hint: "hint".to_string(),
             checks: vec![],
             compiles_as_shipped: false,
+            strict_chktex: false,
         }
     }
 

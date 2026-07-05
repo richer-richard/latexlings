@@ -2,7 +2,7 @@
 
 use crate::check_all;
 use crate::info::{self, Exercise, MARKER};
-use crate::verify::{verify, Status};
+use crate::verify::{self, verify, LintResult, Status};
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -35,6 +35,7 @@ pub struct App {
     done: info::DoneState,
     current: usize,
     status: Option<Status>,
+    lints: Option<LintResult>,
     show_hint: bool,
     scroll: u16,
     mode: UiMode,
@@ -63,6 +64,7 @@ impl App {
             done,
             current,
             status: None,
+            lints: None,
             show_hint: false,
             scroll: 0,
             mode: UiMode::Watch,
@@ -106,6 +108,7 @@ impl App {
             });
         self.current = next.unwrap_or(self.exercises.len());
         self.status = None;
+        self.lints = None;
         self.show_hint = false;
         self.scroll = 0;
         self.last_mtime = None;
@@ -140,7 +143,7 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
             app.flash = Some("compiling…".into());
             terminal.draw(|f| draw(f, &mut app))?;
             let ex = app.cur().unwrap().clone();
-            let status = verify(&app.root, &ex);
+            let (status, lints) = verify::verify_with_lints(&app.root, &ex);
             if status.is_done() {
                 let mtime = app.mtime().map(info::truncate_to_secs);
                 let previous_mtime = app.done.mtime(&ex.name);
@@ -150,6 +153,7 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                 }
             }
             app.status = Some(status);
+            app.lints = lints;
             app.flash = None;
             app.last_mtime = app.mtime();
             app.dirty = false;
@@ -258,6 +262,7 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                 {
                                     app.current = i;
                                     app.status = None;
+                                    app.lints = None;
                                     app.scroll = 0;
                                     app.show_hint = false;
                                     app.dirty = true;
@@ -323,6 +328,7 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                     .position(|e| !app.done.contains(&e.name))
                                     .unwrap_or(app.exercises.len());
                                 app.status = None;
+                                app.lints = None;
                                 app.dirty = !app.all_done();
                                 app.mode = UiMode::Watch;
                             }
@@ -482,6 +488,21 @@ fn draw_watch(frame: &mut Frame, area: Rect, app: &App) {
                 format!("  {l}"),
                 Style::default().fg(Color::Cyan),
             )));
+        }
+    }
+    if let Some(lints) = &app.lints {
+        if !lints.notes.is_empty() {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "  ── chktex notes ────────────────────────",
+                Style::default().fg(Color::Cyan),
+            )));
+            for n in &lints.notes {
+                lines.push(Line::from(Span::styled(
+                    format!("  • {n}"),
+                    Style::default().fg(Color::Cyan),
+                )));
+            }
         }
     }
     let para = Paragraph::new(Text::from(lines))

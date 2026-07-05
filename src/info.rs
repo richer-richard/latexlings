@@ -57,6 +57,10 @@ pub struct Exercise {
     /// (e.g. intro1). dev-check uses this to assert brokenness.
     #[serde(default)]
     pub compiles_as_shipped: bool,
+    /// When true, non-empty chktex output blocks `Done` the same way a
+    /// failing check does. Default false: chktex output is informational only.
+    #[serde(default)]
+    pub strict_chktex: bool,
 }
 
 impl Exercise {
