@@ -9,6 +9,8 @@ use info::{find_root, load_info, Exercise};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::Arc;
+use verify::Status;
 
 const USAGE: &str = "\
 latexlings — small exercises for learning LaTeX (inspired by rustlings)
@@ -77,13 +79,24 @@ fn mark_done(root: &Path, ex: &Exercise) -> Result<()> {
 }
 
 fn cmd_verify(root: &Path, exercises: &[Exercise]) -> Result<bool> {
+    let mut done = info::load_done(root);
+    let (jobs, cached) = check_all::plan_sweep(root, exercises, &done);
+    let verifier: check_all::Verifier = Arc::new(verify::verify);
+    let mut results: Vec<(usize, Status)> = cached;
+    results.extend(check_all::run_blocking(jobs, verifier).into_iter().map(|r| (r.index, r.status)));
+    results.sort_by_key(|(i, _)| *i);
+
     let mut all_ok = true;
     let total = exercises.len();
-    for (i, ex) in exercises.iter().enumerate() {
-        let status = verify::verify(root, ex);
+    for (i, status) in results {
+        let ex = &exercises[i];
         let ok = status.is_done();
         if ok {
-            mark_done(root, ex)?;
+            let mtime = std::fs::metadata(ex.path(root))
+                .and_then(|m| m.modified())
+                .ok()
+                .map(info::truncate_to_secs);
+            done.insert(ex.name.clone(), mtime);
         }
         all_ok &= ok;
         println!(
@@ -94,6 +107,7 @@ fn cmd_verify(root: &Path, exercises: &[Exercise]) -> Result<bool> {
             verify::summarize(&status)
         );
     }
+    info::save_done(root, &done)?;
     Ok(all_ok)
 }
 
