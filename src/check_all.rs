@@ -67,17 +67,40 @@ pub fn spawn(jobs: Vec<Job>, verifier: Verifier) -> Receiver<JobResult> {
 }
 
 /// Blocking convenience wrapper: run all jobs and collect every result.
+///
+/// If a worker thread panics mid-verification, its job's sender is dropped
+/// during unwind without ever sending a `JobResult`, which would otherwise
+/// close the channel one message early and silently return fewer than `n`
+/// results with no indication which job vanished. To keep "one result per
+/// input job" a hard guarantee for every caller, any index missing once the
+/// channel closes is filled in with an explicit `Status::ToolMissing`
+/// failure instead of being dropped.
 pub fn run_blocking(jobs: Vec<Job>, verifier: Verifier) -> Vec<JobResult> {
     let n = jobs.len();
     if n == 0 {
         return Vec::new();
     }
+    let expected_indices: Vec<usize> = jobs.iter().map(|j| j.index).collect();
     let rx = spawn(jobs, verifier);
     let mut results = Vec::with_capacity(n);
     for _ in 0..n {
         match rx.recv() {
             Ok(r) => results.push(r),
             Err(_) => break,
+        }
+    }
+    if results.len() < n {
+        let received: std::collections::HashSet<usize> = results.iter().map(|r| r.index).collect();
+        for index in expected_indices {
+            if !received.contains(&index) {
+                results.push(JobResult {
+                    index,
+                    status: Status::ToolMissing(
+                        "internal error: a worker thread panicked while verifying this exercise — result missing"
+                            .into(),
+                    ),
+                });
+            }
         }
     }
     results
@@ -183,6 +206,35 @@ mod tests {
         let verifier: Verifier = Arc::new(|_, _| Status::Done);
         let results = run_blocking(Vec::new(), verifier);
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn run_blocking_reports_a_result_even_if_a_worker_panics() {
+        // A single worker (forced via a 1-job input so exactly one thread
+        // ever runs) that panics must not silently vanish from the results —
+        // its index should come back tagged with a failure status instead.
+        let verifier: Verifier = Arc::new(|_root, ex| {
+            if ex.name == "panics" {
+                panic!("simulated verifier panic");
+            }
+            Status::Done
+        });
+
+        let jobs = vec![Job {
+            index: 0,
+            root: PathBuf::from("/tmp"),
+            exercise: fake_exercise("panics"),
+        }];
+
+        let results = run_blocking(jobs, verifier);
+
+        assert_eq!(
+            results.len(),
+            1,
+            "a panicked job must still produce exactly one result"
+        );
+        assert_eq!(results[0].index, 0);
+        assert!(!results[0].status.is_done());
     }
 
     use crate::info::DoneState;
