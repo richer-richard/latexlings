@@ -60,9 +60,10 @@ Pass `--edit-cmd <cmd>`. Don't want auto-open at all? Pass `--no-editor`
 | `latexlings solution <name>` | print the reference solution |
 
 After a successful compile, latexlings also runs `chktex` (if installed)
-and prints any lint notes it finds. This is best-effort and informational —
-a handful of exercises set `strict_chktex` and treat lint warnings as a
-hard failure, but most don't.
+and prints any lint notes it finds. This is best-effort and informational
+by default — an exercise can opt in to `strict_chktex` in `info.toml` to
+treat its lint warnings as a hard failure instead, though none of the
+shipped exercises currently do.
 
 ## The course
 

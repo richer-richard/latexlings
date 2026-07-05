@@ -209,11 +209,16 @@ pub fn run_chktex(root: &Path, ex: &Exercise) -> Option<LintResult> {
 /// Runs the normal verify pipeline, then — only if it compiled — best-effort
 /// chktex. If `ex.strict_chktex` and chktex produced notes, downgrades a
 /// would-be-Done/MarkerPresent status to ChecksFail so lint issues block
-/// completion the same way a failing content check does. If the exercise
-/// already failed its content checks (`ChecksFail`), the chktex notes are
-/// merged into the existing note list instead of replacing it, so a
-/// double-failure (content checks AND strict chktex) doesn't lose the
-/// original diagnostic detail.
+/// completion the same way a failing content check does:
+/// - If the exercise already failed its content checks (`ChecksFail`), the
+///   chktex notes are merged into the existing note list instead of
+///   replacing it, so a double-failure (content checks AND strict chktex)
+///   doesn't lose the original diagnostic detail.
+/// - If the exercise was otherwise `Done`/`MarkerPresent`, a descriptive
+///   note replaces the excerpt (there's no rendered-text excerpt to carry
+///   over from those statuses) so the UI doesn't show a dangling, empty
+///   "rendered text starts with:" line, and `MarkerPresent`'s "delete the
+///   marker" guidance is preserved as an explicit note rather than dropped.
 pub fn verify_with_lints(root: &Path, ex: &Exercise) -> (Status, Option<LintResult>) {
     let status = verify(root, ex);
     if matches!(status, Status::CompileFail(_) | Status::ToolMissing(_)) {
@@ -222,17 +227,54 @@ pub fn verify_with_lints(root: &Path, ex: &Exercise) -> (Status, Option<LintResu
     let lints = run_chktex(root, ex);
     let has_notes = lints.as_ref().map(|l| !l.notes.is_empty()).unwrap_or(false);
     if ex.strict_chktex && has_notes {
-        let chktex_notes = lints.as_ref().unwrap().notes.clone();
-        let new_status = match status {
-            Status::ChecksFail(mut notes, excerpt) => {
-                notes.extend(chktex_notes.into_iter().map(|n| format!("chktex: {n}")));
-                Status::ChecksFail(notes, excerpt)
-            }
-            _ => Status::ChecksFail(chktex_notes, String::new()),
-        };
+        let chktex_notes: Vec<String> = lints
+            .as_ref()
+            .unwrap()
+            .notes
+            .iter()
+            .map(|n| format!("chktex: {n}"))
+            .collect();
+        let new_status = apply_strict_chktex(status, chktex_notes);
         return (new_status, lints);
     }
     (status, lints)
+}
+
+/// Pure downgrade logic for a `strict_chktex` failure, extracted from
+/// `verify_with_lints` so it's unit-testable without a real pdflatex/chktex
+/// invocation. `chktex_notes` are assumed already prefixed (e.g. "chktex: ").
+fn apply_strict_chktex(status: Status, chktex_notes: Vec<String>) -> Status {
+    let placeholder_excerpt = "(exercise otherwise compiles and passes all checks)";
+    match status {
+        Status::ChecksFail(mut notes, excerpt) => {
+            notes.extend(chktex_notes);
+            Status::ChecksFail(notes, excerpt)
+        }
+        Status::MarkerPresent => {
+            let mut notes = vec![format!(
+                "compiles and passes all checks — delete the `% {MARKER}` line once the chktex issues below are resolved"
+            )];
+            notes.extend(chktex_notes);
+            Status::ChecksFail(notes, placeholder_excerpt.to_string())
+        }
+        Status::Done => Status::ChecksFail(chktex_notes, placeholder_excerpt.to_string()),
+        // CompileFail/ToolMissing already returned early in verify_with_lints.
+        other => other,
+    }
+}
+
+/// Verifies `ex`, honoring `strict_chktex` only for exercises that opt into
+/// it. Bulk sweeps (`check_all`) use this instead of unconditionally calling
+/// `verify_with_lints`, so the overwhelming majority of exercises (which
+/// don't set `strict_chktex`) skip the chktex subprocess entirely — keeping
+/// bulk verification fast — while the rare exercise that does set it still
+/// gets the same enforcement bulk paths would otherwise silently skip.
+pub fn verify_respecting_strict_chktex(root: &Path, ex: &Exercise) -> Status {
+    if ex.strict_chktex {
+        verify_with_lints(root, ex).0
+    } else {
+        verify(root, ex)
+    }
 }
 
 #[cfg(test)]
@@ -256,5 +298,64 @@ ChkTeX: 2 warnings printed; 0 errors printed.\n";
     fn parse_chktex_notes_on_clean_output_is_empty() {
         let sample = "ChkTeX: No warnings printed.\n";
         assert!(parse_chktex_output(sample).is_empty());
+    }
+
+    #[test]
+    fn strict_chktex_on_checks_fail_merges_notes_and_keeps_original_excerpt() {
+        let original = Status::ChecksFail(
+            vec!["missing figure".to_string()],
+            "rendered...".to_string(),
+        );
+        let result = apply_strict_chktex(original, vec!["chktex: bad spacing".to_string()]);
+        match result {
+            Status::ChecksFail(notes, excerpt) => {
+                assert_eq!(
+                    notes,
+                    vec![
+                        "missing figure".to_string(),
+                        "chktex: bad spacing".to_string()
+                    ]
+                );
+                assert_eq!(excerpt, "rendered...");
+            }
+            other => panic!("expected ChecksFail, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn strict_chktex_on_marker_present_preserves_marker_guidance() {
+        let result = apply_strict_chktex(
+            Status::MarkerPresent,
+            vec!["chktex: bad spacing".to_string()],
+        );
+        match result {
+            Status::ChecksFail(notes, excerpt) => {
+                assert!(
+                    notes[0].contains("I AM NOT DONE"),
+                    "must keep the marker-removal guidance: {notes:?}"
+                );
+                assert!(notes.iter().any(|n| n.contains("bad spacing")));
+                assert!(
+                    !excerpt.is_empty(),
+                    "excerpt must not be a dangling empty string"
+                );
+            }
+            other => panic!("expected ChecksFail, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn strict_chktex_on_done_uses_a_placeholder_excerpt_not_empty() {
+        let result = apply_strict_chktex(Status::Done, vec!["chktex: bad spacing".to_string()]);
+        match result {
+            Status::ChecksFail(notes, excerpt) => {
+                assert_eq!(notes, vec!["chktex: bad spacing".to_string()]);
+                assert!(
+                    !excerpt.is_empty(),
+                    "excerpt must not be a dangling empty string"
+                );
+            }
+            other => panic!("expected ChecksFail, got {other:?}"),
+        }
     }
 }

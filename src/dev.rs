@@ -225,7 +225,12 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
     }
 
     // Phase 2: parallel solution verification (always cold — no memoization).
-    let verifier: crate::check_all::Verifier = std::sync::Arc::new(crate::verify::verify);
+    // verify_respecting_strict_chktex ensures a solution that fails a
+    // strict_chktex exercise's lint gate is caught here too, instead of
+    // dev-check reporting Done via a different, laxer verifier than the
+    // one learners actually hit via `latexlings run`/watch mode.
+    let verifier: crate::check_all::Verifier =
+        std::sync::Arc::new(crate::verify::verify_respecting_strict_chktex);
     let mut sol_results = crate::check_all::run_blocking(solution_jobs, verifier);
     sol_results.sort_by_key(|r| r.index);
     for r in sol_results {

@@ -2,7 +2,7 @@
 
 use crate::check_all;
 use crate::info::{self, Exercise, MARKER};
-use crate::verify::{self, verify, LintResult, Status};
+use crate::verify::{self, verify_respecting_strict_chktex, LintResult, Status};
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -247,7 +247,8 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                 for (i, status) in cached {
                                     app.check_results[i] = Some(status);
                                 }
-                                let verifier: check_all::Verifier = std::sync::Arc::new(verify);
+                                let verifier: check_all::Verifier =
+                                    std::sync::Arc::new(verify_respecting_strict_chktex);
                                 app.check_rx = Some(check_all::spawn(jobs, verifier));
                                 app.mode = UiMode::CheckAll;
                             }

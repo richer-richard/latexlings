@@ -152,7 +152,10 @@ fn cmd_verify(root: &Path, exercises: &[Exercise]) -> Result<bool> {
 
     // Fresh jobs stream in as each finishes (not necessarily input order),
     // so a slow/hung exercise no longer blocks all output for the sweep.
-    let verifier: check_all::Verifier = Arc::new(verify::verify);
+    // verify_respecting_strict_chktex keeps the bulk path fast for the
+    // common (non-strict_chktex) case while still honoring strict_chktex
+    // for the rare exercise that sets it, instead of silently ignoring it.
+    let verifier: check_all::Verifier = Arc::new(verify::verify_respecting_strict_chktex);
     let mut stream_err: Option<anyhow::Error> = None;
     check_all::run_streaming(jobs, verifier, |result| {
         if stream_err.is_some() {
