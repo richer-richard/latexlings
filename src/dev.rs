@@ -41,12 +41,14 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
         failures.push(Failure { exercise: name.into(), problem });
     };
 
+    // Phase 1: cheap sequential checks + scratch-root setup for every exercise.
+    let mut solution_jobs = Vec::new();
+    let mut scratch_roots = Vec::new();
     for (i, ex) in exercises.iter().enumerate() {
         println!("[{:>3}/{}] {}", i + 1, exercises.len(), ex.name);
         let ex_path = ex.path(root);
         let sol_path = root.join(ex.solution_rel());
 
-        // 1. files + hint
         if !ex_path.is_file() {
             fail(&ex.name, format!("missing exercise file {}", ex.rel_path()));
             continue;
@@ -62,7 +64,6 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
             fail(&ex.name, "write-mode exercise with no checks".into());
         }
 
-        // 2. marker discipline
         let ex_text = fs::read_to_string(&ex_path)?;
         let sol_text = fs::read_to_string(&sol_path)?;
         if !ex_text.contains(MARKER) {
@@ -72,7 +73,6 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
             fail(&ex.name, "solution still contains the marker".into());
         }
 
-        // 3. shipped-state behavior
         let shipped = verify(root, ex);
         match (ex.mode, &shipped) {
             (Mode::Fix, Status::CompileFail(_)) if !ex.compiles_as_shipped => {}
@@ -95,11 +95,19 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
             ),
         }
 
-        // 4. solution verifies as Done in a scratch root
         let sroot = scratch_root(ex, &sol_text).context("building scratch root")?;
-        let sol_status = verify(&sroot, ex);
-        if !sol_status.is_done() {
-            let detail = match &sol_status {
+        solution_jobs.push(crate::check_all::Job { index: i, root: sroot.clone(), exercise: ex.clone() });
+        scratch_roots.push(sroot);
+    }
+
+    // Phase 2: parallel solution verification (always cold — no memoization).
+    let verifier: crate::check_all::Verifier = std::sync::Arc::new(crate::verify::verify);
+    let mut sol_results = crate::check_all::run_blocking(solution_jobs, verifier);
+    sol_results.sort_by_key(|r| r.index);
+    for r in sol_results {
+        let ex = &exercises[r.index];
+        if !r.status.is_done() {
+            let detail = match &r.status {
                 Status::CompileFail(e) => {
                     let head: String = e.lines().take(3).collect::<Vec<_>>().join(" | ");
                     format!("solution failed to compile: {head}")
@@ -112,6 +120,8 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
             };
             fail(&ex.name, detail);
         }
+    }
+    for sroot in scratch_roots {
         let _ = fs::remove_dir_all(&sroot);
     }
 
