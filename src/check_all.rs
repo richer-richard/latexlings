@@ -1,7 +1,7 @@
 //! Shared parallel verification engine used by the TUI "check all" mode,
 //! `latexlings verify`, and `dev-check`'s solution-verification pass.
 
-use crate::info::Exercise;
+use crate::info::{DoneState, Exercise};
 use crate::verify::Status;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -12,9 +12,6 @@ use std::thread;
 /// One unit of parallel verification work: an exercise checked against a
 /// specific root (the real practice root for normal checks, or a
 /// per-exercise scratch root for dev-check's solution pass).
-// No caller constructs a `Job` yet — Task 3 wires it into the CLI `verify`
-// command, so allow the resulting dead_code warning here until then.
-#[allow(dead_code)]
 pub struct Job {
     pub index: usize,
     pub root: PathBuf,
@@ -89,6 +86,33 @@ pub fn run_blocking(jobs: Vec<Job>, verifier: Verifier) -> Vec<JobResult> {
     results
 }
 
+/// Build the job list for a full sweep against the real practice root,
+/// skipping exercises whose `.tex` mtime is unchanged since they were last
+/// verified Done — those are reported immediately as cached `Status::Done`
+/// without spawning pdflatex.
+// No caller invokes `plan_sweep` from production code yet — Tasks 4 and 6
+// wire it into the CLI `verify` command and the TUI, so allow the resulting
+// dead_code warning here until then.
+#[allow(dead_code)]
+pub fn plan_sweep(
+    root: &Path,
+    exercises: &[Exercise],
+    done: &DoneState,
+) -> (Vec<Job>, Vec<(usize, Status)>) {
+    let mut jobs = Vec::new();
+    let mut cached = Vec::new();
+    for (i, ex) in exercises.iter().enumerate() {
+        let current_mtime = std::fs::metadata(ex.path(root)).and_then(|m| m.modified()).ok();
+        let unchanged = done.contains(&ex.name) && current_mtime.is_some() && done.mtime(&ex.name) == current_mtime;
+        if unchanged {
+            cached.push((i, Status::Done));
+        } else {
+            jobs.push(Job { index: i, root: root.to_path_buf(), exercise: ex.clone() });
+        }
+    }
+    (jobs, cached)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,5 +164,39 @@ mod tests {
         let verifier: Verifier = Arc::new(|_, _| Status::Done);
         let results = run_blocking(Vec::new(), verifier);
         assert!(results.is_empty());
+    }
+
+    use crate::info::DoneState;
+    use std::time::{Duration, SystemTime};
+
+    #[test]
+    fn plan_sweep_skips_unchanged_done_exercises_and_queues_the_rest() {
+        let dir = std::env::temp_dir().join(format!("latexlings-plan-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("exercises/00_intro")).unwrap();
+        let file_a = dir.join("exercises/00_intro/a.tex");
+        let file_b = dir.join("exercises/00_intro/b.tex");
+        std::fs::write(&file_a, "unchanged").unwrap();
+        std::fs::write(&file_b, "will be marked stale").unwrap();
+
+        let exercises = vec![fake_exercise("a"), fake_exercise("b"), fake_exercise("c")];
+        let a_mtime = std::fs::metadata(&file_a).unwrap().modified().unwrap();
+
+        let mut done = DoneState::default();
+        done.insert("a".to_string(), Some(a_mtime));
+        // "b" is done but with a stale mtime far in the past -> must be rechecked.
+        done.insert("b".to_string(), Some(SystemTime::UNIX_EPOCH + Duration::from_secs(1)));
+        // "c" was never verified -> must be checked.
+
+        let (jobs, cached) = plan_sweep(&dir, &exercises, &done);
+
+        assert_eq!(cached.len(), 1);
+        assert_eq!(cached[0].0, 0); // index of "a"
+        assert!(cached[0].1.is_done());
+
+        let mut job_names: Vec<&str> = jobs.iter().map(|j| j.exercise.name.as_str()).collect();
+        job_names.sort();
+        assert_eq!(job_names, vec!["b", "c"]);
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
