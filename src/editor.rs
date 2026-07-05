@@ -85,9 +85,17 @@ fn open_in_tmux_pane(path: &Path) -> Option<()> {
 
     let path_str = path.to_str()?;
     if let Some(pane_id) = existing_pane {
-        let _ = Command::new("tmux").args(["send-keys", "-t", pane_id, "C-c"]).status();
         let _ = Command::new("tmux")
-            .args(["send-keys", "-t", pane_id, &format!("{editor} {path_str}"), "Enter"])
+            .args(["send-keys", "-t", pane_id, "C-c"])
+            .status();
+        let _ = Command::new("tmux")
+            .args([
+                "send-keys",
+                "-t",
+                pane_id,
+                &format!("{editor} {path_str}"),
+                "Enter",
+            ])
             .status();
     } else {
         let out = Command::new("tmux")
@@ -99,7 +107,13 @@ fn open_in_tmux_pane(path: &Path) -> Option<()> {
             .args(["select-pane", "-t", &pane_id, "-T", PANE_TITLE])
             .status();
         let _ = Command::new("tmux")
-            .args(["send-keys", "-t", &pane_id, &format!("{editor} {path_str}"), "Enter"])
+            .args([
+                "send-keys",
+                "-t",
+                &pane_id,
+                &format!("{editor} {path_str}"),
+                "Enter",
+            ])
             .status();
     }
     Some(())

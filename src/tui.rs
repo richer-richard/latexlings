@@ -373,9 +373,12 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
 }
 
 fn draw(frame: &mut Frame, app: &mut App) {
-    let [header, main, footer] =
-        Layout::vertical([Constraint::Length(3), Constraint::Min(4), Constraint::Length(1)])
-            .areas(frame.area());
+    let [header, main, footer] = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Min(4),
+        Constraint::Length(1),
+    ])
+    .areas(frame.area());
     draw_progress(frame, header, app);
     match app.mode {
         UiMode::Watch => draw_watch(frame, main, app),
@@ -388,7 +391,11 @@ fn draw(frame: &mut Frame, app: &mut App) {
 fn draw_progress(frame: &mut Frame, area: Rect, app: &App) {
     let done = app.done.len();
     let total = app.exercises.len();
-    let ratio = if total == 0 { 0.0 } else { done as f64 / total as f64 };
+    let ratio = if total == 0 {
+        0.0
+    } else {
+        done as f64 / total as f64
+    };
     let gauge = Gauge::default()
         .block(
             Block::default()
@@ -468,7 +475,9 @@ fn draw_watch(frame: &mut Frame, area: Rect, app: &App) {
         (None, Some(Status::ChecksFail(notes, excerpt))) => {
             lines.push(Line::from(Span::styled(
                 "  ✗ compiles, but the rendered output isn't right yet:",
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
             )));
             lines.push(Line::from(""));
             for n in notes {
@@ -529,11 +538,10 @@ fn draw_watch(frame: &mut Frame, area: Rect, app: &App) {
         }
     }
     let para = Paragraph::new(Text::from(lines))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(Span::styled(title, Style::default().add_modifier(Modifier::BOLD))),
-        )
+        .block(Block::default().borders(Borders::ALL).title(Span::styled(
+            title,
+            Style::default().add_modifier(Modifier::BOLD),
+        )))
         .wrap(Wrap { trim: false })
         .scroll((app.scroll, 0));
     frame.render_widget(para, area);
@@ -582,8 +590,11 @@ fn draw_list(frame: &mut Frame, area: Rect, app: &mut App) {
 }
 
 fn draw_check_all(frame: &mut Frame, area: Rect, app: &App) {
-    let done_now =
-        app.check_results.iter().filter(|s| matches!(s, Some(st) if st.is_done())).count();
+    let done_now = app
+        .check_results
+        .iter()
+        .filter(|s| matches!(s, Some(st) if st.is_done()))
+        .count();
     let checked = app.check_results.iter().filter(|s| s.is_some()).count();
     let total = app.exercises.len();
     let title = if app.check_rx.is_some() {
@@ -609,7 +620,9 @@ fn draw_check_all(frame: &mut Frame, area: Rect, app: &App) {
 fn draw_footer(frame: &mut Frame, area: Rect, app: &App) {
     let keys = match app.mode {
         UiMode::Watch => "  n:next  h:hint  l:list  c:check-all  r:recompile  ↑↓:scroll  q:quit",
-        UiMode::List => "  ↑↓/jk:move  enter:work on this  r:reset  d:done  p:pending  /:search  esc:back",
+        UiMode::List => {
+            "  ↑↓/jk:move  enter:work on this  r:reset  d:done  p:pending  /:search  esc:back"
+        }
         UiMode::CheckAll => "  (running…)  q/esc/enter:back once done",
     };
     frame.render_widget(

@@ -57,7 +57,8 @@ fn extract_errors(stdout: &str) -> String {
 
 fn run_pdflatex(root: &Path, ex: &Exercise) -> Result<Status, Status> {
     let build = build_dir(root, ex);
-    fs::create_dir_all(&build).map_err(|e| Status::ToolMissing(format!("cannot create build dir: {e}")))?;
+    fs::create_dir_all(&build)
+        .map_err(|e| Status::ToolMissing(format!("cannot create build dir: {e}")))?;
     let output = Command::new("pdflatex")
         .current_dir(root)
         .arg("-interaction=nonstopmode")
@@ -91,9 +92,15 @@ fn run_pdflatex(root: &Path, ex: &Exercise) -> Result<Status, Status> {
 fn needs_second_pass(root: &Path, ex: &Exercise) -> bool {
     fs::read_to_string(ex.path(root))
         .map(|s| {
-            ["\\ref", "\\pageref", "\\eqref", "\\cite", "\\tableofcontents"]
-                .iter()
-                .any(|n| s.contains(n))
+            [
+                "\\ref",
+                "\\pageref",
+                "\\eqref",
+                "\\cite",
+                "\\tableofcontents",
+            ]
+            .iter()
+            .any(|n| s.contains(n))
         })
         .unwrap_or(false)
 }
@@ -122,7 +129,9 @@ fn rendered_text(root: &Path, ex: &Exercise) -> Result<String, Status> {
 }
 
 pub fn verify(root: &Path, ex: &Exercise) -> Status {
-    if let Err(s) = run_pdflatex(root, ex) { return s }
+    if let Err(s) = run_pdflatex(root, ex) {
+        return s;
+    }
     if needs_second_pass(root, ex) {
         if let Err(s) = run_pdflatex(root, ex) {
             return s;
@@ -192,7 +201,9 @@ pub fn run_chktex(root: &Path, ex: &Exercise) -> Option<LintResult> {
         .output()
         .ok()?;
     let stdout = String::from_utf8_lossy(&output.stdout);
-    Some(LintResult { notes: parse_chktex_output(&stdout) })
+    Some(LintResult {
+        notes: parse_chktex_output(&stdout),
+    })
 }
 
 /// Runs the normal verify pipeline, then — only if it compiled — best-effort

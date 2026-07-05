@@ -174,7 +174,9 @@ impl DoneState {
 }
 
 fn parse_mtime_secs(s: &str) -> Option<SystemTime> {
-    s.parse::<u64>().ok().map(|secs| UNIX_EPOCH + std::time::Duration::from_secs(secs))
+    s.parse::<u64>()
+        .ok()
+        .map(|secs| UNIX_EPOCH + std::time::Duration::from_secs(secs))
 }
 
 fn format_mtime_secs(t: SystemTime) -> Option<u64> {
@@ -186,7 +188,10 @@ fn format_mtime_secs(t: SystemTime) -> Option<u64> {
 /// that has round-tripped through `load_done`/`save_done` (or one that
 /// hasn't yet) always compares at the same precision.
 pub fn truncate_to_secs(t: SystemTime) -> SystemTime {
-    let secs = t.duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
+    let secs = t
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
     UNIX_EPOCH + std::time::Duration::from_secs(secs)
 }
 
@@ -212,7 +217,8 @@ pub fn load_done(root: &Path) -> DoneState {
 }
 
 pub fn save_done(root: &Path, done: &DoneState) -> Result<()> {
-    let mut text = String::from("# latexlings progress — safe to delete if you want to start over\n");
+    let mut text =
+        String::from("# latexlings progress — safe to delete if you want to start over\n");
     for (name, mtime) in &done.entries {
         match mtime.and_then(format_mtime_secs) {
             Some(secs) => text.push_str(&format!("{name}\t{secs}\n")),
@@ -257,7 +263,10 @@ pub fn init(target: &Path) -> Result<()> {
         "This file marks a latexlings practice directory. Keep it.\n",
     )?;
     fs::write(target.join(".gitignore"), "build/\n.latexlings-state.txt\n")?;
-    println!("initialized latexlings practice directory: {}", target.display());
+    println!(
+        "initialized latexlings practice directory: {}",
+        target.display()
+    );
     println!();
     println!("    cd {}", target.display());
     println!("    latexlings        # start the watch TUI");
@@ -308,7 +317,8 @@ mod tests {
 
     #[test]
     fn done_state_reads_legacy_no_mtime_format() {
-        let dir = std::env::temp_dir().join(format!("latexlings-test-legacy-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("latexlings-test-legacy-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join(".latexlings-state.txt"),

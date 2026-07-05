@@ -36,10 +36,19 @@ fn is_valid_ident(s: &str) -> bool {
 fn check_names_and_dirs(exercises: &[Exercise], fail: &mut impl FnMut(&str, String)) {
     for ex in exercises {
         if !is_valid_ident(&ex.name) {
-            fail(&ex.name, format!("name `{}` must be non-empty alphanumeric/underscore", ex.name));
+            fail(
+                &ex.name,
+                format!(
+                    "name `{}` must be non-empty alphanumeric/underscore",
+                    ex.name
+                ),
+            );
         }
         if !is_valid_ident(&ex.dir) {
-            fail(&ex.name, format!("dir `{}` must be non-empty alphanumeric/underscore", ex.dir));
+            fail(
+                &ex.name,
+                format!("dir `{}` must be non-empty alphanumeric/underscore", ex.dir),
+            );
         }
     }
 }
@@ -47,7 +56,11 @@ fn check_names_and_dirs(exercises: &[Exercise], fail: &mut impl FnMut(&str, Stri
 /// Every `.tex` file under `exercises/` and `solutions/` must be reachable
 /// from `info.toml` — otherwise it's dead content nobody runs dev-check
 /// against, silently drifting out of sync.
-fn check_no_orphan_files(root: &Path, exercises: &[Exercise], fail: &mut impl FnMut(&str, String)) -> Result<()> {
+fn check_no_orphan_files(
+    root: &Path,
+    exercises: &[Exercise],
+    fail: &mut impl FnMut(&str, String),
+) -> Result<()> {
     let known_exercises: HashSet<String> = exercises.iter().map(Exercise::rel_path).collect();
     check_orphans_in(&root.join("exercises"), root, &known_exercises, fail)?;
 
@@ -72,7 +85,10 @@ fn check_orphans_in(
             .to_string_lossy()
             .replace('\\', "/");
         if !known.contains(&rel) {
-            fail("(orphan)", format!("{rel} is not referenced by any exercise in info.toml"));
+            fail(
+                "(orphan)",
+                format!("{rel} is not referenced by any exercise in info.toml"),
+            );
         }
     }
     Ok(())
@@ -108,7 +124,10 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
     let mut failures: Vec<Failure> = Vec::new();
     let mut fail = |name: &str, problem: String| {
         println!("  ✗ {name}: {problem}");
-        failures.push(Failure { exercise: name.into(), problem });
+        failures.push(Failure {
+            exercise: name.into(),
+            problem,
+        });
     };
 
     check_names_and_dirs(exercises, &mut fail);
@@ -127,7 +146,10 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
             continue;
         }
         if !sol_path.is_file() {
-            fail(&ex.name, format!("missing solution file {}", ex.solution_rel()));
+            fail(
+                &ex.name,
+                format!("missing solution file {}", ex.solution_rel()),
+            );
             continue;
         }
         if ex.hint.trim().is_empty() {
@@ -152,7 +174,10 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
             }
         };
         if !ex_text.contains(MARKER) {
-            fail(&ex.name, format!("shipped exercise lacks `% {MARKER}` marker"));
+            fail(
+                &ex.name,
+                format!("shipped exercise lacks `% {MARKER}` marker"),
+            );
         }
         if sol_text.contains(MARKER) {
             fail(&ex.name, "solution still contains the marker".into());
@@ -166,7 +191,11 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
                 &ex.name,
                 format!(
                     "shipped fix exercise should {} but got: {}",
-                    if ex.compiles_as_shipped { "compile (marker gate only)" } else { "FAIL to compile" },
+                    if ex.compiles_as_shipped {
+                        "compile (marker gate only)"
+                    } else {
+                        "FAIL to compile"
+                    },
                     crate::verify::summarize(other)
                 ),
             ),
@@ -187,7 +216,11 @@ pub fn dev_check(root: &Path, exercises: &[Exercise]) -> Result<bool> {
                 continue;
             }
         };
-        solution_jobs.push(crate::check_all::Job { index: i, root: sroot.clone(), exercise: ex.clone() });
+        solution_jobs.push(crate::check_all::Job {
+            index: i,
+            root: sroot.clone(),
+            exercise: ex.clone(),
+        });
         scratch_roots.push(sroot);
     }
 

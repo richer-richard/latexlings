@@ -52,7 +52,13 @@ pub fn spawn(jobs: Vec<Job>, verifier: Verifier) -> Receiver<JobResult> {
             let i = cursor.fetch_add(1, Ordering::Relaxed);
             let Some(job) = jobs.get(i) else { break };
             let status = verifier(&job.root, &job.exercise);
-            if tx.send(JobResult { index: job.index, status }).is_err() {
+            if tx
+                .send(JobResult {
+                    index: job.index,
+                    status,
+                })
+                .is_err()
+            {
                 break;
             }
         });
@@ -93,11 +99,17 @@ pub fn plan_sweep(
             .and_then(|m| m.modified())
             .ok()
             .map(info::truncate_to_secs);
-        let unchanged = done.contains(&ex.name) && current_mtime.is_some() && done.mtime(&ex.name) == current_mtime;
+        let unchanged = done.contains(&ex.name)
+            && current_mtime.is_some()
+            && done.mtime(&ex.name) == current_mtime;
         if unchanged {
             cached.push((i, Status::Done));
         } else {
-            jobs.push(Job { index: i, root: root.to_path_buf(), exercise: ex.clone() });
+            jobs.push(Job {
+                index: i,
+                root: root.to_path_buf(),
+                exercise: ex.clone(),
+            });
         }
     }
     (jobs, cached)
@@ -131,13 +143,29 @@ mod tests {
         let calls_clone = Arc::clone(&calls);
         let verifier: Verifier = Arc::new(move |_root, ex| {
             calls_clone.fetch_add(1, Ordering::SeqCst);
-            if ex.name == "fails" { Status::CompileFail("boom".into()) } else { Status::Done }
+            if ex.name == "fails" {
+                Status::CompileFail("boom".into())
+            } else {
+                Status::Done
+            }
         });
 
         let jobs = vec![
-            Job { index: 0, root: PathBuf::from("/tmp"), exercise: fake_exercise("a") },
-            Job { index: 1, root: PathBuf::from("/tmp"), exercise: fake_exercise("fails") },
-            Job { index: 2, root: PathBuf::from("/tmp"), exercise: fake_exercise("c") },
+            Job {
+                index: 0,
+                root: PathBuf::from("/tmp"),
+                exercise: fake_exercise("a"),
+            },
+            Job {
+                index: 1,
+                root: PathBuf::from("/tmp"),
+                exercise: fake_exercise("fails"),
+            },
+            Job {
+                index: 2,
+                root: PathBuf::from("/tmp"),
+                exercise: fake_exercise("c"),
+            },
         ];
 
         let mut results = run_blocking(jobs, verifier);
@@ -179,7 +207,10 @@ mod tests {
         // rather than storing a raw, full-precision mtime.
         done.insert("a".to_string(), Some(info::truncate_to_secs(a_mtime)));
         // "b" is done but with a stale mtime far in the past -> must be rechecked.
-        done.insert("b".to_string(), Some(SystemTime::UNIX_EPOCH + Duration::from_secs(1)));
+        done.insert(
+            "b".to_string(),
+            Some(SystemTime::UNIX_EPOCH + Duration::from_secs(1)),
+        );
         // "c" was never verified -> must be checked.
 
         let (jobs, cached) = plan_sweep(&dir, &exercises, &done);
@@ -209,8 +240,8 @@ mod tests {
         // defeated on nearly every real invocation — this test builds the
         // `DoneState` via an actual save/load round trip (not purely in
         // memory) to reproduce that exact scenario.
-        let dir = std::env::temp_dir()
-            .join(format!("latexlings-plan-roundtrip-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("latexlings-plan-roundtrip-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("exercises/00_intro")).unwrap();
         let file_a = dir.join("exercises/00_intro/a.tex");
         std::fs::write(&file_a, "unchanged").unwrap();

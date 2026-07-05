@@ -41,9 +41,10 @@ requested document), make the checks pass, delete the `% I AM NOT DONE`
 line, press n.";
 
 fn find_exercise<'a>(exercises: &'a [Exercise], name: &str) -> Result<&'a Exercise> {
-    exercises.iter().find(|e| e.name == name).ok_or_else(|| {
-        anyhow::anyhow!("no exercise named `{name}` — try `latexlings list`")
-    })
+    exercises
+        .iter()
+        .find(|e| e.name == name)
+        .ok_or_else(|| anyhow::anyhow!("no exercise named `{name}` — try `latexlings list`"))
 }
 
 fn cmd_run(root: &Path, ex: &Exercise) -> Result<bool> {
@@ -100,7 +101,11 @@ fn cmd_verify(root: &Path, exercises: &[Exercise]) -> Result<bool> {
     let (jobs, cached) = check_all::plan_sweep(root, exercises, &done);
     let verifier: check_all::Verifier = Arc::new(verify::verify);
     let mut results: Vec<(usize, Status)> = cached;
-    results.extend(check_all::run_blocking(jobs, verifier).into_iter().map(|r| (r.index, r.status)));
+    results.extend(
+        check_all::run_blocking(jobs, verifier)
+            .into_iter()
+            .map(|r| (r.index, r.status)),
+    );
     results.sort_by_key(|(i, _)| *i);
 
     let mut all_ok = true;
@@ -154,9 +159,16 @@ fn take_editor_flags(args: &mut Vec<String>) -> editor::EditorConfig {
         args.remove(i);
         (i < args.len()).then(|| args.remove(i))
     });
-    let no_editor = args.iter().position(|a| a == "--no-editor").map(|i| args.remove(i)).is_some()
+    let no_editor = args
+        .iter()
+        .position(|a| a == "--no-editor")
+        .map(|i| args.remove(i))
+        .is_some()
         || env::var("LATEXLINGS_NO_EDITOR").is_ok();
-    editor::EditorConfig { edit_cmd, disabled: no_editor }
+    editor::EditorConfig {
+        edit_cmd,
+        disabled: no_editor,
+    }
 }
 
 fn real_main() -> Result<bool> {
@@ -197,7 +209,9 @@ fn real_main() -> Result<bool> {
         }
         Some("run") => {
             let name = args.get(1).map(String::as_str);
-            let Some(name) = name else { bail!("usage: latexlings run <name>") };
+            let Some(name) = name else {
+                bail!("usage: latexlings run <name>")
+            };
             let ex = find_exercise(&exercises, name)?;
             cmd_run(&root, ex)
         }
@@ -207,9 +221,9 @@ fn real_main() -> Result<bool> {
             let spec = args.get(1).ok_or_else(|| {
                 anyhow::anyhow!("usage: latexlings dev-new <category>/<name> [--mode fix|write]")
             })?;
-            let (category, name) = spec
-                .split_once('/')
-                .ok_or_else(|| anyhow::anyhow!("expected <category>/<name>, e.g. 16_something/foo1"))?;
+            let (category, name) = spec.split_once('/').ok_or_else(|| {
+                anyhow::anyhow!("expected <category>/<name>, e.g. 16_something/foo1")
+            })?;
             let mode = match args
                 .iter()
                 .position(|a| a == "--mode")
@@ -223,7 +237,9 @@ fn real_main() -> Result<bool> {
             Ok(true)
         }
         Some("hint") => {
-            let Some(name) = args.get(1) else { bail!("usage: latexlings hint <name>") };
+            let Some(name) = args.get(1) else {
+                bail!("usage: latexlings hint <name>")
+            };
             let ex = find_exercise(&exercises, name)?;
             println!("{}", ex.hint);
             Ok(true)
@@ -233,13 +249,17 @@ fn real_main() -> Result<bool> {
             Ok(true)
         }
         Some("reset") => {
-            let Some(name) = args.get(1) else { bail!("usage: latexlings reset <name>") };
+            let Some(name) = args.get(1) else {
+                bail!("usage: latexlings reset <name>")
+            };
             let ex = find_exercise(&exercises, name)?;
             info::reset(&root, ex)?;
             Ok(true)
         }
         Some("solution") => {
-            let Some(name) = args.get(1) else { bail!("usage: latexlings solution <name>") };
+            let Some(name) = args.get(1) else {
+                bail!("usage: latexlings solution <name>")
+            };
             let ex = find_exercise(&exercises, name)?;
             let disk = root.join(ex.solution_rel());
             let text = if disk.is_file() {
