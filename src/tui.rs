@@ -9,7 +9,6 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders, Cell, Gauge, Paragraph, Row, Table, TableState, Wrap};
 use ratatui::{DefaultTerminal, Frame};
-use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
@@ -24,7 +23,7 @@ enum UiMode {
 pub struct App {
     root: PathBuf,
     exercises: Vec<Exercise>,
-    done: BTreeSet<String>,
+    done: info::DoneState,
     current: usize,
     status: Option<Status>,
     show_hint: bool,
@@ -112,8 +111,13 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
             terminal.draw(|f| draw(f, &mut app))?;
             let ex = app.cur().unwrap().clone();
             let status = verify(&app.root, &ex);
-            if status.is_done() && app.done.insert(ex.name.clone()) {
-                info::save_done(&app.root, &app.done)?;
+            if status.is_done() {
+                let mtime = app.mtime();
+                let previous_mtime = app.done.mtime(&ex.name);
+                let is_new = app.done.insert(ex.name.clone(), mtime);
+                if is_new || previous_mtime != mtime {
+                    info::save_done(&app.root, &app.done)?;
+                }
             }
             app.status = Some(status);
             app.flash = None;

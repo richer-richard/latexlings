@@ -55,15 +55,18 @@ fn cmd_run(root: &Path, ex: &Exercise) -> Result<bool> {
         verify::Status::ToolMissing(msg) => println!("✗ {msg}"),
     }
     if status.is_done() {
-        mark_done(root, &ex.name)?;
+        mark_done(root, ex)?;
     }
     Ok(status.is_done())
 }
 
 /// Persist a completed exercise so watch/list agree with run/verify.
-fn mark_done(root: &Path, name: &str) -> Result<()> {
+fn mark_done(root: &Path, ex: &Exercise) -> Result<()> {
     let mut done = info::load_done(root);
-    if done.insert(name.to_string()) {
+    let mtime = std::fs::metadata(ex.path(root)).and_then(|m| m.modified()).ok();
+    let previous_mtime = done.mtime(&ex.name);
+    let is_new = done.insert(ex.name.clone(), mtime);
+    if is_new || previous_mtime != mtime {
         info::save_done(root, &done)?;
     }
     Ok(())
@@ -76,7 +79,7 @@ fn cmd_verify(root: &Path, exercises: &[Exercise]) -> Result<bool> {
         let status = verify::verify(root, ex);
         let ok = status.is_done();
         if ok {
-            mark_done(root, &ex.name)?;
+            mark_done(root, ex)?;
         }
         all_ok &= ok;
         println!(
