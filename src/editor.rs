@@ -51,8 +51,7 @@ fn try_open(config: &EditorConfig, path: &Path) -> Option<()> {
         return open_in_tmux_pane(path);
     }
     let editor = env::var("EDITOR").ok()?;
-    let quoted = shlex::try_quote(path.to_str()?).ok()?;
-    run_edit_cmd(&format!("{editor} {quoted}"), path)
+    run_edit_cmd(&editor, path)
 }
 
 fn run_edit_cmd(cmd: &str, path: &Path) -> Option<()> {

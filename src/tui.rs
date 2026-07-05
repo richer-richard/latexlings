@@ -48,6 +48,7 @@ pub struct App {
     list_filter: ListFilter,
     search: Option<String>,
     editor_config: crate::editor::EditorConfig,
+    last_opened: Option<usize>,
 }
 
 impl App {
@@ -82,6 +83,7 @@ impl App {
             list_filter: ListFilter::None,
             search: None,
             editor_config,
+            last_opened: None,
         }
     }
 
@@ -153,7 +155,10 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
             app.flash = Some("compiling…".into());
             terminal.draw(|f| draw(f, &mut app))?;
             let ex = app.cur().unwrap().clone();
-            crate::editor::open(&app.editor_config, &ex.path(&app.root));
+            if app.last_opened != Some(app.current) {
+                crate::editor::open(&app.editor_config, &ex.path(&app.root));
+                app.last_opened = Some(app.current);
+            }
             let (status, lints) = verify::verify_with_lints(&app.root, &ex);
             if status.is_done() {
                 let mtime = app.mtime().map(info::truncate_to_secs);
@@ -272,10 +277,13 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                     app.list_state.selected().and_then(|i| rows.get(i)).copied()
                                 {
                                     app.current = i;
-                                    crate::editor::open(
-                                        &app.editor_config,
-                                        &app.exercises[i].path(&app.root),
-                                    );
+                                    if app.last_opened != Some(app.current) {
+                                        crate::editor::open(
+                                            &app.editor_config,
+                                            &app.exercises[i].path(&app.root),
+                                        );
+                                        app.last_opened = Some(app.current);
+                                    }
                                     app.status = None;
                                     app.lints = None;
                                     app.scroll = 0;
