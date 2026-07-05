@@ -73,8 +73,13 @@ const PANE_TITLE: &str = "latexlings-editor";
 
 fn open_in_tmux_pane(path: &Path) -> Option<()> {
     let editor = env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
+    // `-s` scopes the listing to the current session only. `open_in_tmux_pane`
+    // only ever creates panes in the session this process is attached to, so
+    // `-s` is sufficient to find a previously-created pane — using `-a`
+    // (whole server) would risk matching a same-titled pane left over from an
+    // unrelated tmux session.
     let list = Command::new("tmux")
-        .args(["list-panes", "-a", "-F", "#{pane_id} #{pane_title}"])
+        .args(["list-panes", "-s", "-F", "#{pane_id} #{pane_title}"])
         .output()
         .ok()?;
     let list = String::from_utf8_lossy(&list.stdout);
