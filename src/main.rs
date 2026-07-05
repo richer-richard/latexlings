@@ -1,3 +1,4 @@
+mod check_all;
 mod dev;
 mod info;
 mod tui;
