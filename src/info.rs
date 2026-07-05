@@ -161,6 +161,9 @@ impl DoneState {
         self.entries.len()
     }
 
+    // Kept to satisfy clippy's len_without_is_empty convention on `len`; no
+    // caller needs it yet, so allow the resulting dead_code warning here.
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
