@@ -20,9 +20,6 @@ pub struct Job {
 
 /// A job's outcome, tagged with its original index so callers can map
 /// results back to input order regardless of completion order.
-// No caller reads a `JobResult` yet — Task 3 wires it into the CLI `verify`
-// command, so allow the resulting dead_code warning here until then.
-#[allow(dead_code)]
 pub struct JobResult {
     pub index: usize,
     pub status: Status,
@@ -36,9 +33,6 @@ pub type Verifier = Arc<dyn Fn(&Path, &Exercise) -> Status + Send + Sync>;
 /// shared atomic cursor. Returns immediately with a `Receiver` the caller
 /// drains as results land, in completion order (not input order) — use
 /// `JobResult::index` to recover input order.
-// No caller invokes `spawn` yet — Task 3 wires it into the CLI `verify`
-// command, so allow the resulting dead_code warning here until then.
-#[allow(dead_code)]
 pub fn spawn(jobs: Vec<Job>, verifier: Verifier) -> Receiver<JobResult> {
     let (tx, rx) = mpsc::channel();
     let n_jobs = jobs.len();
@@ -67,9 +61,6 @@ pub fn spawn(jobs: Vec<Job>, verifier: Verifier) -> Receiver<JobResult> {
 }
 
 /// Blocking convenience wrapper: run all jobs and collect every result.
-// No caller invokes `run_blocking` yet — Task 3 wires it into the CLI
-// `verify` command, so allow the resulting dead_code warning here until then.
-#[allow(dead_code)]
 pub fn run_blocking(jobs: Vec<Job>, verifier: Verifier) -> Vec<JobResult> {
     let n = jobs.len();
     if n == 0 {
@@ -90,10 +81,6 @@ pub fn run_blocking(jobs: Vec<Job>, verifier: Verifier) -> Vec<JobResult> {
 /// skipping exercises whose `.tex` mtime is unchanged since they were last
 /// verified Done — those are reported immediately as cached `Status::Done`
 /// without spawning pdflatex.
-// No caller invokes `plan_sweep` from production code yet — Tasks 4 and 6
-// wire it into the CLI `verify` command and the TUI, so allow the resulting
-// dead_code warning here until then.
-#[allow(dead_code)]
 pub fn plan_sweep(
     root: &Path,
     exercises: &[Exercise],
