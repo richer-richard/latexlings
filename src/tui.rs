@@ -159,12 +159,16 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                 crate::editor::open(&app.editor_config, &ex.path(&app.root));
                 app.last_opened = Some(app.current);
             }
+            // Captured *before* verifying (a slow pdflatex compile), not
+            // after: reading it afterward could pick up a newer edit made
+            // while the compile was running, stamping the cache against
+            // content that was never actually verified.
+            let mtime_at_verify_start = app.mtime().map(info::truncate_to_secs);
             let (status, lints) = verify::verify_with_lints(&app.root, &ex);
             if status.is_done() {
-                let mtime = app.mtime().map(info::truncate_to_secs);
                 let previous_mtime = app.done.mtime(&ex.name);
-                let is_new = app.done.insert(ex.name.clone(), mtime);
-                if is_new || previous_mtime != mtime {
+                let is_new = app.done.insert(ex.name.clone(), mtime_at_verify_start);
+                if is_new || previous_mtime != mtime_at_verify_start {
                     info::save_done(&app.root, &app.done)?;
                 }
             }
@@ -190,6 +194,18 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
             }
             if disconnected {
                 app.check_rx = None;
+                // A worker panic drops its sender without ever delivering a
+                // result for that job — fill in any slot still empty once
+                // the channel closes, so the sweep can't get stuck showing
+                // "complete" while a cell sits on the pending placeholder
+                // forever with no result ever having arrived for it.
+                for slot in app.check_results.iter_mut() {
+                    if slot.is_none() {
+                        *slot = Some(Status::ToolMissing(
+                            "internal error: a worker thread panicked while verifying this exercise — result missing".into(),
+                        ));
+                    }
+                }
             }
         }
 
@@ -212,9 +228,16 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                             KeyCode::Char('h') => app.show_hint = !app.show_hint,
                             KeyCode::Char('r') => app.dirty = true,
                             KeyCode::Char('l') => {
-                                app.list_state.select(Some(
-                                    app.current.min(app.exercises.len().saturating_sub(1)),
-                                ));
+                                // Seed the selection with app.current's
+                                // position WITHIN the filtered rows, not a
+                                // raw full-list index — list_filter persists
+                                // across mode switches, so a stale full-list
+                                // index could be out of range or point at
+                                // the wrong row in a filtered table.
+                                let rows = app.visible_rows();
+                                let seed = rows.iter().position(|&i| i == app.current).unwrap_or(0);
+                                app.list_state
+                                    .select(Some(seed.min(rows.len().saturating_sub(1))));
                                 app.mode = UiMode::List;
                             }
                             KeyCode::Char('c') => {
@@ -332,15 +355,21 @@ fn event_loop(terminal: &mut DefaultTerminal, mut app: App) -> Result<()> {
                                 if app.check_rx.is_none() =>
                             {
                                 // Sweep finished — reconcile and return to Watch.
+                                // Both directions matter: newly-passing
+                                // exercises get inserted, and a previously-Done
+                                // exercise that regressed to failing has its
+                                // stale entry removed rather than left behind.
                                 for (i, status) in app.check_results.iter().enumerate() {
                                     if let Some(status) = status {
+                                        let ex = &app.exercises[i];
                                         if status.is_done() {
-                                            let ex = &app.exercises[i];
                                             let mtime = std::fs::metadata(ex.path(&app.root))
                                                 .and_then(|m| m.modified())
                                                 .ok()
                                                 .map(info::truncate_to_secs);
                                             app.done.insert(ex.name.clone(), mtime);
+                                        } else {
+                                            app.done.remove(&ex.name);
                                         }
                                     }
                                 }
